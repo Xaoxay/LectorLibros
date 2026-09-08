@@ -31,6 +31,10 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Aceptar licencias de Android SDK
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
       - name: Permisos ejecutables para Gradle
         run: chmod +x ./android/gradlew
 
@@ -52,7 +56,12 @@ jobs:
 
       - name: Compilar APK Debug con Gradle
         working-directory: ./android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee gradle_output.log || {
+            echo "::error::Gradle Error Summary:"
+            grep -E "FAILURE|FAILED|Error|exception|compileSdk" gradle_output.log -A 5 -B 1 || tail -n 60 gradle_output.log
+            exit 1
+          }
 
       - name: Subir APK como artefacto de descarga
         uses: actions/upload-artifact@v4
