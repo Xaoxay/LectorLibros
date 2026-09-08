@@ -25,19 +25,19 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Configurar Java 17 (JDK)
+      - name: Configurar Java 21 (JDK)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Instalar componentes de Android SDK 36
+      - name: Instalar componentes de Android SDK
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0" || true
 
       - name: Permisos ejecutables para Gradle
         run: chmod +x ./android/gradlew
@@ -48,15 +48,9 @@ jobs:
       - name: Compilar aplicacion web
         run: npm run build
 
-      - name: Copiar archivos web a Android
+      - name: Sincronizar proyecto con Android
         run: |
-          mkdir -p android/app/src/main/assets/public
-          npx cap copy android || {
-            echo "Fallback de copia directa..."
-            cp -r dist/* android/app/src/main/assets/public/
-            cp capacitor.config.json android/app/src/main/assets/capacitor.config.json
-            echo "[]" > android/app/src/main/assets/capacitor.plugins.json
-          }
+          npx cap sync android
 
       - name: Compilar APK Debug con Gradle
         working-directory: ./android
@@ -68,14 +62,25 @@ jobs:
         if: failure()
         run: |
           echo "==================== ULTIMAS LINEAS DE GRADLE ===================="
-          tail -n 80 gradle_build.log || true
+          tail -n 120 gradle_build.log || true
           echo "================================================================="
+
+      - name: Subir log de error si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-error-log
+          path: gradle_build.log
+          retention-days: 7
 
       - name: Recolectar archivos APK generados
         run: |
           mkdir -p apk_output
-          find . -name "*.apk" -type f -exec cp {} apk_output/ \;
-          echo "Archivos APK encontrados:"
+          find android/ -name "*.apk" -type f -exec cp {} apk_output/ \;
+          if [ -f apk_output/app-debug.apk ]; then
+            cp apk_output/app-debug.apk apk_output/LectorLibros.apk
+          fi
+          echo "Archivos APK listos:"
           ls -lh apk_output/
 
       - name: Subir APK como artefacto de descarga
@@ -94,9 +99,12 @@ jobs:
           name: Lector Libros v1.0.0 (Instalador Android)
           body: |
             ### 📱 Lector Libros v1.0.0 para Android
-            ¡Tu aplicación ya está lista!
+            ¡Tu aplicación ya está lista para instalar!
             
-            Descarga directamente el archivo **`.apk`** que aparece abajo en los archivos adjuntos (Assets) e instálalo en tu celular Android.
+            Descarga directamente el archivo **`LectorLibros.apk`** que aparece abajo en los archivos adjuntos (Assets) e instálalo en tu celular Android.
           files: apk_output/*.apk
+          draft: false
+          prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
