@@ -1,4 +1,4 @@
-import { APP_VERSION, BUILD_DATE } from '../config/version';
+import { APP_VERSION, BUILD_DATE, DEFAULT_REPO } from '../config/version';
 import { get, set } from 'idb-keyval';
 
 const SETTINGS_KEY = 'app_update_settings';
@@ -25,14 +25,14 @@ export async function getUpdateSettings() {
     const saved = await get(SETTINGS_KEY);
     return {
       autoCheck: true,
-      githubRepo: '',
+      githubRepo: DEFAULT_REPO || '',
       customUrl: '',
       ...saved,
     };
   } catch {
     return {
       autoCheck: true,
-      githubRepo: '',
+      githubRepo: DEFAULT_REPO || '',
       customUrl: '',
     };
   }
