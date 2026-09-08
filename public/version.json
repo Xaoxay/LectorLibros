@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "buildDate": "2026-09-08",
+  "notes": [
+    "Buscador online integrado con más de 70.000 libros",
+    "Sistema de resaltado en 4 colores y notas personales",
+    "Gestor de citas con búsqueda y salto automático a la página",
+    "Modo libro físico 3D con sonido realista de hojas",
+    "Soporte completo para APK de Android e instalación offline"
+  ],
+  "downloadUrl": "https://github.com",
+  "minAndroidVersion": "8.0"
+}

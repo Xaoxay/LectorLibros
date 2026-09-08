@@ -1,0 +1,53 @@
+name: Generar APK de Android (Lector Libros)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Compilar APK Android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Configurar Java 17 (JDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Instalar dependencias
+        run: npm ci || npm install
+
+      - name: Compilar aplicación web
+        run: npm run build
+
+      - name: Sincronizar Capacitor con Android
+        run: npx cap sync android
+
+      - name: Permisos para Gradle
+        run: chmod +x ./android/gradlew
+
+      - name: Compilar APK Debug
+        run: |
+          cd android
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Subir APK como artefacto de descarga
+        uses: actions/upload-artifact@v4
+        with:
+          name: LectorLibros-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
