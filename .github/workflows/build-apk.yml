@@ -28,17 +28,20 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Permisos ejecutables para Gradle
         run: chmod +x ./android/gradlew
 
       - name: Instalar dependencias
         run: npm install
 
-      - name: Compilar aplicación web
+      - name: Compilar aplicacion web
         run: npm run build
 
-      - name: Sincronizar Capacitor con Android
-        run: npx cap sync android
+      - name: Copiar archivos web a Android
+        run: npx cap copy android
 
       - name: Compilar APK Debug con Gradle
         working-directory: ./android
