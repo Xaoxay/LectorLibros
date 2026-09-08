@@ -66,8 +66,15 @@ jobs:
         if: failure()
         run: |
           echo "==================== ULTIMAS LINEAS DE GRADLE ===================="
-          tail -n 120 gradle_build.log || tail -n 120 android/gradle_build.log || true
+          tail -n 150 gradle_build.log || tail -n 150 android/gradle_build.log || true
           echo "================================================================="
+          echo "## ❌ Error al compilar con Gradle" >> $GITHUB_STEP_SUMMARY
+          echo "<details open><summary><b>Últimas líneas del registro</b></summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -n 120 gradle_build.log >> $GITHUB_STEP_SUMMARY || tail -n 120 android/gradle_build.log >> $GITHUB_STEP_SUMMARY || echo "No log found" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
 
       - name: Subir log de error si falla
         if: failure()
