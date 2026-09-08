@@ -41,7 +41,14 @@ jobs:
         run: npm run build
 
       - name: Copiar archivos web a Android
-        run: npx cap copy android
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          npx cap copy android || {
+            echo "Fallback de copia directa..."
+            cp -r dist/* android/app/src/main/assets/public/
+            cp capacitor.config.json android/app/src/main/assets/capacitor.config.json
+            echo "[]" > android/app/src/main/assets/capacitor.plugins.json
+          }
 
       - name: Compilar APK Debug con Gradle
         working-directory: ./android
