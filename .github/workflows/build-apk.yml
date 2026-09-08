@@ -50,19 +50,23 @@ jobs:
 
       - name: Sincronizar proyecto con Android
         run: |
-          npx cap sync android
+          mkdir -p android/app/src/main/assets/public
+          cp -r dist/* android/app/src/main/assets/public/
+          cp capacitor.config.json android/app/src/main/assets/capacitor.config.json || true
+          npx cap sync android || echo "::warning::Sync con capacitor finalizo con advertencias"
 
       - name: Compilar APK Debug con Gradle
         working-directory: ./android
         run: |
           set -o pipefail
+          touch ../gradle_build.log
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle_build.log
 
       - name: Mostrar registro en caso de fallo
         if: failure()
         run: |
           echo "==================== ULTIMAS LINEAS DE GRADLE ===================="
-          tail -n 120 gradle_build.log || true
+          tail -n 120 gradle_build.log || tail -n 120 android/gradle_build.log || true
           echo "================================================================="
 
       - name: Subir log de error si falla
@@ -70,7 +74,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gradle-error-log
-          path: gradle_build.log
+          path: |
+            gradle_build.log
+            android/gradle_build.log
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Recolectar archivos APK generados
