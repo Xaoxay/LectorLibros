@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Compilar APK Android
@@ -31,9 +34,10 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Aceptar licencias de Android SDK
+      - name: Instalar componentes de Android SDK 36
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
 
       - name: Permisos ejecutables para Gradle
         run: chmod +x ./android/gradlew
@@ -57,15 +61,42 @@ jobs:
       - name: Compilar APK Debug con Gradle
         working-directory: ./android
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee gradle_output.log || {
-            echo "::error::Gradle Error Summary:"
-            grep -E "FAILURE|FAILED|Error|exception|compileSdk" gradle_output.log -A 5 -B 1 || tail -n 60 gradle_output.log
-            exit 1
-          }
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle_build.log
+
+      - name: Mostrar registro en caso de fallo
+        if: failure()
+        run: |
+          echo "==================== ULTIMAS LINEAS DE GRADLE ===================="
+          tail -n 80 gradle_build.log || true
+          echo "================================================================="
+
+      - name: Recolectar archivos APK generados
+        run: |
+          mkdir -p apk_output
+          find . -name "*.apk" -type f -exec cp {} apk_output/ \;
+          echo "Archivos APK encontrados:"
+          ls -lh apk_output/
 
       - name: Subir APK como artefacto de descarga
         uses: actions/upload-artifact@v4
         with:
           name: LectorLibros-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: apk_output/*.apk
+          if-no-files-found: error
           retention-days: 30
+
+      - name: Publicar Release en GitHub con APK
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.0
+          name: Lector Libros v1.0.0 (Instalador Android)
+          body: |
+            ### 📱 Lector Libros v1.0.0 para Android
+            ¡Tu aplicación ya está lista!
+            
+            Descarga directamente el archivo **`.apk`** que aparece abajo en los archivos adjuntos (Assets) e instálalo en tu celular Android.
+          files: apk_output/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
