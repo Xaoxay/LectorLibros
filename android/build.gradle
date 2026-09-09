@@ -2,10 +2,10 @@
 
 buildscript {
     ext {
-        buildToolsVersion = findProperty('android.buildToolsVersion') ?: '33.0.0'
+        buildToolsVersion = findProperty('android.buildToolsVersion') ?: '34.0.0'
         minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '21')
-        compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '33')
-        targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '33')
+        compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '34')
+        targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
         if (findProperty('android.kotlinVersion')) {
             kotlinVersion = findProperty('android.kotlinVersion')
         }
@@ -26,20 +26,20 @@ buildscript {
 
 // Global properties for all subprojects (including :expo and native modules)
 ext {
-    buildToolsVersion = '33.0.0'
+    buildToolsVersion = '34.0.0'
     minSdkVersion = 21
-    compileSdkVersion = 33
-    targetSdkVersion = 33
+    compileSdkVersion = 34
+    targetSdkVersion = 34
     ndkVersion = "23.1.7779620"
     frescoVersion = "2.5.0"
 }
 
 allprojects {
     ext {
-        buildToolsVersion = '33.0.0'
+        buildToolsVersion = '34.0.0'
         minSdkVersion = 21
-        compileSdkVersion = 33
-        targetSdkVersion = 33
+        compileSdkVersion = 34
+        targetSdkVersion = 34
         ndkVersion = "23.1.7779620"
     }
     repositories {

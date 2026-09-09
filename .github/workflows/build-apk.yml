@@ -1,4 +1,4 @@
-﻿name: Generar APK de Android (Lector Libros v2.0)
+name: Generar APK de Android (Lector Libros v2.0)
 
 on:
   push:
@@ -35,7 +35,7 @@ jobs:
       - name: Instalar componentes de Android SDK
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;23.1.7779620" "cmake;3.22.1"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "platforms;android-33" "build-tools;34.0.0" "ndk;23.1.7779620" "cmake;3.22.1"
 
       - name: Instalar dependencias del proyecto
         run: npm install --legacy-peer-deps
