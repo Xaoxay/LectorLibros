@@ -1,8 +1,8 @@
-﻿{
+{
   "expo": {
-    "name": "Kindle Clone",
+    "name": "Lector Libros",
     "slug": "kindle-clone",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -16,7 +16,8 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.xaoxay.kindleclone"
+      "package": "com.xaoxay.kindleclone",
+      "versionCode": 20
     }
   }
 }
