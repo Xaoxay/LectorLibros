@@ -24,7 +24,24 @@ buildscript {
     }
 }
 
+// Global properties for all subprojects (including :expo and native modules)
+ext {
+    buildToolsVersion = '33.0.0'
+    minSdkVersion = 21
+    compileSdkVersion = 33
+    targetSdkVersion = 33
+    ndkVersion = "23.1.7779620"
+    frescoVersion = "2.5.0"
+}
+
 allprojects {
+    ext {
+        buildToolsVersion = '33.0.0'
+        minSdkVersion = 21
+        compileSdkVersion = 33
+        targetSdkVersion = 33
+        ndkVersion = "23.1.7779620"
+    }
     repositories {
         maven {
             // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
