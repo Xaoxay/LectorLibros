@@ -138,26 +138,6 @@ export default function App() {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-950">
-      {/* Banner flotante de actualización disponible */}
-      <AnimatePresence>
-        {updateAvailable && !showUpdateModal && (
-          <motion.div
-            initial={{ y: -60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -60, opacity: 0 }}
-            className="fixed top-3 inset-x-0 z-50 flex justify-center px-4 pointer-events-none"
-          >
-            <button
-              onClick={() => setShowUpdateModal(true)}
-              className="pointer-events-auto bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 font-extrabold text-xs sm:text-sm px-4 py-2.5 rounded-full shadow-2xl shadow-amber-500/30 flex items-center gap-2 border border-amber-300 active:scale-95 transition-transform cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 animate-bounce" />
-              <span>Nueva versión disponible (v{updateAvailable.latestVersion}) • Toca para actualizar</span>
-              <ArrowUpCircle className="w-4 h-4 ml-1 stroke-[2.5]" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence mode="wait">
         {loadingBook && (
