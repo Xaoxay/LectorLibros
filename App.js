@@ -1,4 +1,4 @@
-﻿// App.js - Kindle Clone (UN SOLO ARCHIVO)
+// App.js - Kindle Clone (UN SOLO ARCHIVO)
 // ATENCIÃ“N: reemplaza firebaseConfig con tu config.
 // Requiere: expo, firebase, react-native-reanimated, react-native-gesture-handler,
 // react-native-webview, expo-document-picker, react-native-pdf (opcional), @react-navigation/*
@@ -405,7 +405,7 @@ function Reader({ route, navigation }) {
           setPage((p) => Math.max(0, p - 1));
         } else if (book.pages && page > 0) {
           setPage((p) => Math.max(0, p - 1));
-        } else if (book.type === "epub" or book.type === "online") {
+        } else if (book.type === "epub" || book.type === "online") {
           webRef.current?.postMessage(JSON.stringify({ cmd: "prev" }));
         }
       }
@@ -453,7 +453,7 @@ function Reader({ route, navigation }) {
     );
   }
 
-  # ... (truncated content to keep file size reasonable)
+  // ... (content to keep file size reasonable)
 
 
   // End of Reader fallback area (trimmed version).
