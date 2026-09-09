@@ -74,7 +74,7 @@ jobs:
           cp gradle_build.log android_build_error.log || cp android/gradle_build.log android_build_error.log || true
           git add android_build_error.log
           git commit -m "ci: dump gradle error log" || true
-          git push origin debug-logs --force || true
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:debug-logs --force || true
 
       - name: Subir log de error si falla
         if: failure()
