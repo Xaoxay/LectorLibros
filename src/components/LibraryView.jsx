@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Plus, Upload, Search, Smartphone, 
   Sparkles, Compass, Download, X, Layers, Loader2, AlertCircle,
-  ArrowUpCircle, Check, Menu, Filter, ArrowRight, Heart, CheckCircle2
+  ArrowUpCircle, Check, Menu, Filter, ArrowRight, Heart, CheckCircle2,
+  ChevronRight
 } from 'lucide-react';
 import Book3DCard from './Book3DCard';
 import ContinueReadingHero from './ContinueReadingHero';
