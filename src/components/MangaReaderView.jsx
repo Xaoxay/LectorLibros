@@ -9,6 +9,7 @@ import {
 import PageFlipEffect from './PageFlipEffect';
 import { playPageTurnSound } from '../utils/soundEffects';
 import { updateBookProgress } from '../db/bookStorage';
+import { hapticLight } from '../services/haptics';
 
 export default function MangaReaderView({ bookMeta, bookBuffer, onBack }) {
   const [loading, setLoading] = useState(true);
@@ -79,6 +80,7 @@ export default function MangaReaderView({ bookMeta, bookBuffer, onBack }) {
   const goToPage = (idx) => {
     const nextIdx = Math.min(totalPages - 1, Math.max(0, idx));
     if (nextIdx !== currentPage) {
+      hapticLight();
       if (mode !== 'webtoon') {
         if (soundEnabled) playPageTurnSound();
         setFlipState(nextIdx > currentPage ? 'next' : 'prev');

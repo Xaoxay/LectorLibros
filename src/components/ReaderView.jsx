@@ -19,6 +19,7 @@ import {
   getBookmarks, addBookmark, removeBookmark,
   getAnnotations, saveAnnotation, deleteAnnotation, updateAnnotationNote
 } from '../db/bookStorage';
+import { hapticLight } from '../services/haptics';
 
 const HIGHLIGHT_STYLES = {
   yellow: { fill: '#fde047', 'fill-opacity': '0.38', 'mix-blend-mode': 'multiply' },
@@ -293,6 +294,7 @@ export default function ReaderView({ bookMeta, bookBuffer, onBack, onOpenUpdates
 
   // ANIMACIÓN DE PASAR PÁGINA EN 3D
   const turnPageNext = () => {
+    hapticLight();
     if (soundEnabled) playPageTurnSound();
     setFlipState('next');
     setTimeout(() => setFlipState(null), 440);
@@ -300,6 +302,7 @@ export default function ReaderView({ bookMeta, bookBuffer, onBack, onOpenUpdates
   };
 
   const turnPagePrev = () => {
+    hapticLight();
     if (soundEnabled) playPageTurnSound();
     setFlipState('prev');
     setTimeout(() => setFlipState(null), 440);

@@ -10,6 +10,7 @@ import { createSampleManga } from '../utils/sampleManga';
 import { extractUniversalMetadata } from '../utils/universalParser';
 import { saveBookFile, saveBookMetadata } from '../db/bookStorage';
 import { searchOnlineBooks, getPopularBooks, downloadBookBuffer } from '../services/onlineCatalog';
+import { hapticLight, hapticSuccess } from '../services/haptics';
 
 export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBook }) {
   const [activeTab, setActiveTab] = useState('online'); // 'online' | 'direct' | 'sites'
@@ -104,6 +105,7 @@ export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBo
 
       // 5. Actualizar la biblioteca del usuario
       await onRefreshBooks();
+      hapticSuccess();
       setDownloadSuccessId(book.id);
       setTimeout(() => setDownloadSuccessId(null), 4000);
     } catch (err) {
@@ -201,6 +203,7 @@ export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBo
       });
 
       await onRefreshBooks();
+      hapticSuccess();
       setDirectSuccessId(item.id);
       setTimeout(() => setDirectSuccessId(null), 3000);
     } catch (err) {
@@ -216,28 +219,39 @@ export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBo
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 select-none"
         onClick={onClose}
       >
         <motion.div
-          initial={{ opacity: 0, y: 100, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 100, scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-          className="w-full sm:max-w-3xl h-[90vh] sm:h-[82vh] bg-slate-900/98 border border-white/10 rounded-t-3xl sm:rounded-3xl flex flex-col text-slate-100 shadow-2xl safe-bottom backdrop-blur-2xl overflow-hidden"
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0.05, bottom: 0.4 }}
+          onDragEnd={(e, info) => {
+            if (info.offset.y > 130 || info.velocity.y > 350) {
+              hapticLight();
+              onClose();
+            }
+          }}
+          initial={{ opacity: 0, y: 120 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 120 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+          className="w-full sm:max-w-3xl h-[92vh] sm:h-[84vh] bg-slate-900/98 border border-white/10 rounded-t-[32px] sm:rounded-3xl flex flex-col text-slate-100 shadow-2xl safe-bottom backdrop-blur-2xl overflow-hidden"
           onClick={e => e.stopPropagation()}
         >
-          {/* Barra de arrastre móvil */}
-          <div className="w-12 h-1.5 bg-slate-700/60 rounded-full mx-auto mt-3 sm:hidden" />
+          {/* Manija táctil superior para deslizar y cerrar (Material 3 Drag Handle) */}
+          <div className="w-full pt-3 pb-1 flex items-center justify-center cursor-grab active:cursor-grabbing sm:hidden">
+            <div className="w-14 h-1.5 bg-slate-600/70 hover:bg-slate-500 rounded-full" />
+          </div>
 
           {/* Encabezado */}
-          <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-2xl bg-amber-500/15 text-amber-400">
+          <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
                 <Compass className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
                   Descubrir y Descargar Libros
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -246,51 +260,53 @@ export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBo
               </div>
             </div>
             <button 
-              onClick={onClose}
-              className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 text-slate-400 hover:text-white transition-colors"
+              onClick={() => { hapticLight(); onClose(); }}
+              className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 text-slate-400 hover:text-white transition-colors cursor-pointer"
               aria-label="Cerrar catálogo"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Pestañas principales */}
-          <div className="px-4 sm:px-5 pt-2 flex gap-2 border-b border-white/5 overflow-x-auto scrollbar-none">
-            <button
-              onClick={() => setActiveTab('online')}
-              className={`h-12 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 transition-all flex-shrink-0 ${
-                activeTab === 'online'
-                  ? 'border-amber-400 text-amber-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Search className="w-4 h-4" />
-              <span>Buscador Online (+70.000)</span>
-            </button>
+          {/* Pestañas estilo Material 3 Segmented Pill Buttons */}
+          <div className="px-4 sm:px-5 py-2.5 border-b border-white/5">
+            <div className="flex gap-1.5 p-1 bg-slate-950/60 rounded-2xl border border-white/5 overflow-x-auto scrollbar-none">
+              <button
+                onClick={() => { hapticLight(); setActiveTab('online'); }}
+                className={`h-10 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all flex-1 justify-center cursor-pointer ${
+                  activeTab === 'online'
+                    ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                }`}
+              >
+                <Search className="w-4 h-4" />
+                <span className="truncate">Buscador (+70k)</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('direct')}
-              className={`h-12 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 transition-all flex-shrink-0 ${
-                activeTab === 'direct'
-                  ? 'border-amber-400 text-amber-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Muestras (1-Clic)</span>
-            </button>
+              <button
+                onClick={() => { hapticLight(); setActiveTab('direct'); }}
+                className={`h-10 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all flex-1 justify-center cursor-pointer ${
+                  activeTab === 'direct'
+                    ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="truncate">Muestras (1-Clic)</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('sites')}
-              className={`h-12 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 transition-all flex-shrink-0 ${
-                activeTab === 'sites'
-                  ? 'border-amber-400 text-amber-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Globe className="w-4 h-4" />
-              <span>Sitios Web Externos</span>
-            </button>
+              <button
+                onClick={() => { hapticLight(); setActiveTab('sites'); }}
+                className={`h-10 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all flex-1 justify-center cursor-pointer ${
+                  activeTab === 'sites'
+                    ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                }`}
+              >
+                <Globe className="w-4 h-4" />
+                <span className="truncate">Sitios Web</span>
+              </button>
+            </div>
           </div>
 
           {/* Contenido según pestaña */}

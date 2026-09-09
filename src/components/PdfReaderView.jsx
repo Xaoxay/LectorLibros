@@ -9,6 +9,7 @@ import {
 import PageFlipEffect from './PageFlipEffect';
 import { playPageTurnSound } from '../utils/soundEffects';
 import { updateBookProgress } from '../db/bookStorage';
+import { hapticLight } from '../services/haptics';
 
 export default function PdfReaderView({ bookMeta, bookBuffer, onBack }) {
   const canvasRef = useRef(null);
@@ -120,6 +121,7 @@ export default function PdfReaderView({ bookMeta, bookBuffer, onBack }) {
     if (!pdfDocRef.current) return;
     const newPage = Math.min(totalPages, Math.max(1, currentPage + delta));
     if (newPage !== currentPage) {
+      hapticLight();
       if (soundEnabled) playPageTurnSound();
       setFlipState(delta > 0 ? 'next' : 'prev');
       setTimeout(() => setFlipState(null), 440);

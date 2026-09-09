@@ -11,8 +11,10 @@ import ContinueReadingHero from './ContinueReadingHero';
 import AndroidInstallModal from './AndroidInstallModal';
 import CatalogModal from './CatalogModal';
 import SidebarDrawer from './SidebarDrawer';
+import BottomNavBar from './BottomNavBar';
 import { extractUniversalMetadata } from '../utils/universalParser';
 import { saveBookMetadata, saveBookFile, deleteBook, toggleFavorite } from '../db/bookStorage';
+import { hapticLight, hapticMedium, hapticSuccess } from '../services/haptics';
 import { createSampleEpub } from '../utils/sampleBook';
 import { createSampleManga } from '../utils/sampleManga';
 import { downloadBookBuffer } from '../services/onlineCatalog';
@@ -149,6 +151,7 @@ export default function LibraryView({
   };
 
   const handleToggleFavorite = async (bookId) => {
+    hapticLight();
     await toggleFavorite(bookId);
     await onRefreshBooks();
   };
@@ -156,6 +159,7 @@ export default function LibraryView({
   // Descarga e importación en 1-clic de clásicos recomendados
   const handleQuickAddClassic = async (item) => {
     try {
+      hapticMedium();
       setDownloadingClassicId(item.id);
       setErrorMessage('');
 
@@ -185,6 +189,7 @@ export default function LibraryView({
       });
 
       await onRefreshBooks();
+      hapticSuccess();
       setClassicSuccessId(item.id);
       setTimeout(() => setClassicSuccessId(null), 3000);
     } catch (err) {
@@ -266,7 +271,7 @@ export default function LibraryView({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="min-h-full w-full ambient-glow text-slate-100 flex flex-col relative transition-colors duration-300 pb-28"
+      className="min-h-full w-full ambient-glow text-slate-100 flex flex-col relative transition-colors duration-300 pb-40"
     >
       {/* Overlay Drag & Drop */}
       <AnimatePresence>
@@ -284,15 +289,18 @@ export default function LibraryView({
         )}
       </AnimatePresence>
 
-      {/* 1. BARRA SUPERIOR ELEGANTE Y ESPACIOSA */}
+      {/* 1. BARRA SUPERIOR ELEGANTE Y ESPACIOSA (MATERIAL YOU APP BAR) */}
       <header className="sticky top-0 z-40 glass-panel safe-top px-4 sm:px-6 py-3 border-b border-white/[0.08] shadow-sm">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          {/* Lado Izquierdo: Botón Hamburguesa ☰ + Título */}
+          {/* Lado Izquierdo: Botón Menú ☰ + Título */}
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => setIsDrawerOpen(true)}
+              onClick={() => {
+                hapticLight();
+                setIsDrawerOpen(true);
+              }}
               className="relative w-11 h-11 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer flex-shrink-0 border border-white/10 shadow-sm"
-              title="Abrir menú de navegación"
+              title="Abrir menú de formatos y ajustes"
               aria-label="Abrir menú"
             >
               <Menu className="w-5 h-5" />
@@ -301,7 +309,7 @@ export default function LibraryView({
               )}
             </button>
 
-            <div className="min-w-0 flex items-center gap-2">
+            <div className="min-w-0 flex items-center gap-2.5">
               <h1 className="text-base sm:text-lg font-black text-white tracking-tight leading-none truncate">
                 {filterTitles[activeFilter] || 'Mi Biblioteca'}
               </h1>
@@ -311,24 +319,17 @@ export default function LibraryView({
             </div>
           </div>
 
-          {/* Lado Derecho: Acciones rápidas (Catálogo + Importar) con botones generosos y texto visible */}
+          {/* Lado Derecho: Acciones rápidas (Importar) */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Botón rápido Explorar Catálogo */}
+            {/* Botón Importar con feedback táctil */}
             <button
-              onClick={() => setShowCatalog(true)}
-              className="h-10 px-3.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-95 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-              title="Descargar libros de Gutenberg"
-            >
-              <Compass className="w-4 h-4 text-indigo-400" />
-              <span>Catálogo</span>
-            </button>
-
-            {/* Botón Importar */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                hapticMedium();
+                fileInputRef.current?.click();
+              }}
               disabled={uploading}
-              className="h-10 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 active:scale-95 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
-              title="Importar libro"
+              className="h-11 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 active:scale-95 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+              title="Importar libro nuevo"
             >
               {uploading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -693,13 +694,16 @@ export default function LibraryView({
         )}
       </main>
 
-      {/* 3. BOTÓN FLOTANTE ERGONÓMICO (FAB) CON ARQUITECTURA BUTTON-IN-BUTTON */}
+      {/* 3. BOTÓN FLOTANTE EXTENDIDO MATERIAL 3 (FAB) */}
       <motion.button
         whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.96 }}
-        onClick={() => fileInputRef.current?.click()}
+        whileTap={{ scale: 0.94 }}
+        onClick={() => {
+          hapticMedium();
+          fileInputRef.current?.click();
+        }}
         disabled={uploading}
-        className="fixed bottom-6 right-5 z-40 h-13 px-5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-black text-xs sm:text-sm shadow-2xl shadow-amber-500/35 flex items-center gap-2.5 border border-amber-300/50 transition-transform cursor-pointer safe-bottom"
+        className="fixed bottom-22 sm:bottom-24 right-4 sm:right-6 z-30 h-14 px-5 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-black text-xs sm:text-sm shadow-2xl shadow-amber-500/35 flex items-center gap-2.5 border border-amber-300/50 transition-transform cursor-pointer"
         title="Agregar nuevo libro o manga"
       >
         <div className="w-7 h-7 rounded-xl bg-slate-950/20 flex items-center justify-center text-slate-950">
@@ -712,7 +716,7 @@ export default function LibraryView({
         <span>Agregar libro</span>
       </motion.button>
 
-      {/* Barra lateral deslizable (Sidebar Drawer) */}
+      {/* Barra lateral deslizable (Sidebar Drawer para Formatos y Ajustes) */}
       <SidebarDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
@@ -732,7 +736,7 @@ export default function LibraryView({
         onOpenInstall={() => setShowInstallGuide(true)}
       />
 
-      {/* Modales */}
+      {/* Modales y Hojas Inferiores */}
       <AndroidInstallModal
         isOpen={showInstallGuide}
         onClose={() => setShowInstallGuide(false)}
@@ -744,6 +748,18 @@ export default function LibraryView({
         onClose={() => setShowCatalog(false)}
         onRefreshBooks={onRefreshBooks}
         onOpenBook={onOpenBook}
+      />
+
+      {/* Barra de Navegación Inferior Móvil Material You (Zona del Pulgar) */}
+      <BottomNavBar
+        activeTab={activeFilter === 'all' || activeFilter === 'favorites' || activeFilter === 'completed' ? activeFilter : 'all'}
+        onSelectTab={(tabId) => {
+          setActiveFilter(tabId);
+        }}
+        totalBooks={books.length}
+        favoritesCount={favoritesCount}
+        completedCount={completedCount}
+        onOpenCatalog={() => setShowCatalog(true)}
       />
     </div>
   );

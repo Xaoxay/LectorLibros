@@ -9,6 +9,7 @@ import {
   checkForUpdates, applyUpdate, getUpdateSettings, 
   saveUpdateSettings, getLastCheckTime 
 } from '../services/updateService';
+import { hapticLight, hapticSuccess } from '../services/haptics';
 
 export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }) {
   const [loading, setLoading] = useState(false);
@@ -37,6 +38,7 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
   };
 
   const handleCheck = async () => {
+    hapticLight();
     setLoading(true);
     try {
       const result = await checkForUpdates(true);
@@ -45,6 +47,9 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
       setLastCheck(Date.now());
       if (onUpdateAvailableChange) {
         onUpdateAvailableChange(result.hasUpdate);
+      }
+      if (result?.hasUpdate) {
+        hapticSuccess();
       }
     } catch (err) {
       console.error(err);
@@ -55,6 +60,7 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
+    hapticLight();
     setSavingSettings(true);
     await saveUpdateSettings(settings);
     setSavingSettings(false);
@@ -62,16 +68,20 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
     handleCheck();
   };
 
-  const handleApply = () => {
-    if (updateInfo) {
-      applyUpdate(updateInfo);
-    }
+  const handleApply = async () => {
+    if (!updateInfo) return;
+    hapticSuccess();
+    await applyUpdate(updateInfo);
   };
 
   const formatLastCheck = (timestamp) => {
     if (!timestamp) return 'Nunca';
-    const d = new Date(timestamp);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + d.toLocaleDateString();
+    const diffMin = Math.round((Date.now() - timestamp) / (1000 * 60));
+    if (diffMin < 1) return 'Hace un momento';
+    if (diffMin < 60) return `Hace ${diffMin} min`;
+    const diffHours = Math.round(diffMin / 60);
+    if (diffHours < 24) return `Hace ${diffHours} h`;
+    return new Date(timestamp).toLocaleDateString();
   };
 
   // Modo simulación de prueba para que el usuario pueda ver el flujo
@@ -96,17 +106,31 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 select-none"
         onClick={onClose}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.94, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.94, y: 20 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-          className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col text-slate-100 backdrop-blur-2xl"
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0.05, bottom: 0.4 }}
+          onDragEnd={(e, info) => {
+            if (info.offset.y > 110 || info.velocity.y > 350) {
+              hapticLight();
+              onClose();
+            }
+          }}
+          initial={{ opacity: 0, y: 120 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 120 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+          className="w-full max-w-lg bg-slate-900/98 border border-white/10 rounded-t-[32px] sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col text-slate-100 backdrop-blur-2xl safe-bottom"
           onClick={e => e.stopPropagation()}
         >
+          {/* Manija táctil de arrastre superior */}
+          <div className="w-full pt-3 pb-1 flex items-center justify-center cursor-grab active:cursor-grabbing sm:hidden">
+            <div className="w-14 h-1.5 bg-slate-600/70 hover:bg-slate-500 rounded-full" />
+          </div>
+
           {/* Encabezado */}
           <div className="p-5 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -114,16 +138,16 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
                 <ArrowUpCircle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white tracking-tight">Actualizaciones del Sistema</h3>
+                <h3 className="text-lg font-black text-white tracking-tight">Actualizaciones del Sistema</h3>
                 <p className="text-xs text-slate-400">
-                  Lector Libros <span className="text-amber-400 font-semibold">v{APP_VERSION}</span>
+                  Lector Libros <span className="text-amber-400 font-bold">v{APP_VERSION}</span>
                 </p>
               </div>
             </div>
 
             <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-full hover:bg-white/10 active:bg-white/20 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              onClick={() => { hapticLight(); onClose(); }}
+              className="w-10 h-10 rounded-full hover:bg-white/10 active:bg-white/20 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, BookOpen, Search, ChevronRight } from 'lucide-react';
+import { hapticLight } from '../services/haptics';
 
 export default function TableOfContentsModal({ isOpen, onClose, toc, onSelectChapter, currentChapter }) {
   const [search, setSearch] = useState('');
@@ -26,10 +27,11 @@ export default function TableOfContentsModal({ isOpen, onClose, toc, onSelectCha
         <div key={item.id || item.href || idx} className="w-full">
           <button
             onClick={() => {
+              hapticLight();
               onSelectChapter(item.href);
               onClose();
             }}
-            className={`w-full text-left py-3.5 px-4 rounded-xl flex items-center justify-between text-sm sm:text-base min-h-[48px] active:scale-[0.99] transition-all ${
+            className={`w-full text-left py-3.5 px-4 rounded-xl flex items-center justify-between text-sm sm:text-base min-h-[48px] active:scale-[0.99] transition-all cursor-pointer ${
               isCurrent
                 ? 'bg-amber-500/15 text-amber-400 font-bold border-l-4 border-amber-500 shadow-sm'
                 : 'text-slate-200 hover:bg-white/5 active:bg-white/10 hover:text-white'
@@ -52,19 +54,30 @@ export default function TableOfContentsModal({ isOpen, onClose, toc, onSelectCha
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md select-none"
         onClick={onClose}
       >
         <motion.div
-          initial={{ opacity: 0, y: 100, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 100, scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-          className="w-full sm:max-w-md h-[80vh] sm:h-[70vh] bg-slate-900/95 border border-white/10 rounded-t-3xl sm:rounded-3xl flex flex-col text-slate-100 shadow-2xl safe-bottom backdrop-blur-2xl"
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0.05, bottom: 0.4 }}
+          onDragEnd={(e, info) => {
+            if (info.offset.y > 110 || info.velocity.y > 350) {
+              hapticLight();
+              onClose();
+            }
+          }}
+          initial={{ opacity: 0, y: 120 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 120 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+          className="w-full sm:max-w-md h-[82vh] sm:h-[72vh] bg-slate-900/98 border border-white/10 rounded-t-[32px] sm:rounded-3xl flex flex-col text-slate-100 shadow-2xl safe-bottom backdrop-blur-2xl overflow-hidden"
           onClick={e => e.stopPropagation()}
         >
-          {/* Barra de arrastre móvil */}
-          <div className="w-12 h-1.5 bg-slate-700/60 rounded-full mx-auto mt-3 sm:hidden" />
+          {/* Barra táctil de arrastre superior */}
+          <div className="w-full pt-3 pb-1 flex items-center justify-center cursor-grab active:cursor-grabbing sm:hidden">
+            <div className="w-14 h-1.5 bg-slate-600/70 hover:bg-slate-500 rounded-full" />
+          </div>
 
           {/* Encabezado */}
           <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">

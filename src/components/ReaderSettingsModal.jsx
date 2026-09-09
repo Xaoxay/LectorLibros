@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Type, RefreshCw } from 'lucide-react';
 import { APP_VERSION } from '../config/version';
+import { hapticLight } from '../services/haptics';
 
 export default function ReaderSettingsModal({ isOpen, onClose, settings, onUpdateSettings, onOpenUpdates }) {
   if (!isOpen) return null;
@@ -20,6 +21,7 @@ export default function ReaderSettingsModal({ isOpen, onClose, settings, onUpdat
   ];
 
   const handleFontSizeChange = (delta) => {
+    hapticLight();
     const newSize = Math.min(32, Math.max(12, (settings.fontSize || 18) + delta));
     onUpdateSettings({ ...settings, fontSize: newSize });
   };
@@ -27,31 +29,40 @@ export default function ReaderSettingsModal({ isOpen, onClose, settings, onUpdat
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md select-none"
         onClick={onClose}
       >
         <motion.div
-          initial={{ opacity: 0, y: 100, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 100, scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-          className="w-full sm:max-w-md bg-slate-900/95 border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 text-slate-100 shadow-2xl safe-bottom backdrop-blur-2xl"
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0.05, bottom: 0.4 }}
+          onDragEnd={(e, info) => {
+            if (info.offset.y > 110 || info.velocity.y > 350) {
+              hapticLight();
+              onClose();
+            }
+          }}
+          initial={{ opacity: 0, y: 120 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 120 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+          className="w-full sm:max-w-md bg-slate-900/98 border border-white/10 rounded-t-[32px] sm:rounded-3xl p-6 text-slate-100 shadow-2xl safe-bottom backdrop-blur-2xl"
           onClick={e => e.stopPropagation()}
         >
-          {/* Barra para arrastrar en móvil */}
-          <div className="w-12 h-1.5 bg-slate-700/60 rounded-full mx-auto mb-4 sm:hidden" />
+          {/* Barra táctil para arrastrar y cerrar */}
+          <div className="w-14 h-1.5 bg-slate-600/70 hover:bg-slate-500 rounded-full mx-auto mb-4 cursor-grab active:cursor-grabbing sm:hidden" />
 
           {/* Encabezado */}
           <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-6">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400">
+              <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">Ajustes de Lectura</h3>
+              <h3 className="text-base sm:text-lg font-black text-white tracking-tight">Ajustes de Lectura</h3>
             </div>
             <button 
-              onClick={onClose}
-              className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-90 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-sm"
+              onClick={() => { hapticLight(); onClose(); }}
+              className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-90 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-sm cursor-pointer"
               title="Cerrar"
             >
               <X className="w-5 h-5" />
@@ -69,8 +80,11 @@ export default function ReaderSettingsModal({ isOpen, onClose, settings, onUpdat
                 return (
                   <button
                     key={t.id}
-                    onClick={() => onUpdateSettings({ ...settings, theme: t.id })}
-                    className={`h-14 sm:h-16 flex flex-col items-center justify-center rounded-2xl border-2 transition-all active:scale-95 shadow-md ${
+                    onClick={() => {
+                      hapticLight();
+                      onUpdateSettings({ ...settings, theme: t.id });
+                    }}
+                    className={`h-14 sm:h-16 flex flex-col items-center justify-center rounded-2xl border-2 transition-all active:scale-95 shadow-md cursor-pointer ${
                       isSelected 
                         ? 'ring-3 ring-amber-400 ring-offset-2 ring-offset-slate-900 font-extrabold scale-[1.02]' 
                         : 'opacity-85 hover:opacity-100'
@@ -97,7 +111,7 @@ export default function ReaderSettingsModal({ isOpen, onClose, settings, onUpdat
               <button
                 onClick={() => handleFontSizeChange(-2)}
                 disabled={settings.fontSize <= 12}
-                className="w-14 h-12 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-25 text-xl font-black transition-all active:scale-90 flex items-center justify-center shadow-sm"
+                className="w-14 h-12 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-25 text-xl font-black transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
                 title="Reducir letra"
               >
                 A-
@@ -109,7 +123,7 @@ export default function ReaderSettingsModal({ isOpen, onClose, settings, onUpdat
               <button
                 onClick={() => handleFontSizeChange(2)}
                 disabled={settings.fontSize >= 32}
-                className="w-14 h-12 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-25 text-xl font-black transition-all active:scale-90 flex items-center justify-center shadow-sm"
+                className="w-14 h-12 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-25 text-xl font-black transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
                 title="Aumentar letra"
               >
                 A+
@@ -128,8 +142,11 @@ export default function ReaderSettingsModal({ isOpen, onClose, settings, onUpdat
                 return (
                   <button
                     key={f.id}
-                    onClick={() => onUpdateSettings({ ...settings, fontFamily: f.id })}
-                    className={`h-13 px-3 rounded-2xl text-xs sm:text-sm font-bold border-2 transition-all text-center active:scale-95 flex items-center justify-center ${
+                    onClick={() => {
+                      hapticLight();
+                      onUpdateSettings({ ...settings, fontFamily: f.id });
+                    }}
+                    className={`h-13 px-3 rounded-2xl text-xs sm:text-sm font-bold border-2 transition-all text-center active:scale-95 flex items-center justify-center cursor-pointer ${
                       isSelected
                         ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-md'
                         : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
