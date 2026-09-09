@@ -31,11 +31,11 @@ export default function Book3DCard({ book, onOpen, onDelete, onToggleFavorite })
     <div className="relative flex flex-col h-full">
       <motion.div
         layout
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.92 }}
-        transition={{ duration: 0.25 }}
-        className="book-3d-wrapper relative flex flex-col h-full group cursor-pointer"
+        initial={{ opacity: 0, scale: 0.96, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+        className="book-3d-wrapper relative flex flex-col h-full group cursor-pointer active:scale-[0.98] transition-transform"
         onClick={() => onOpen(book)}
       >
         {/* Portada 3D */}

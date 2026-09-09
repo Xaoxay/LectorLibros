@@ -30,14 +30,14 @@ const FEATURED_CLASSICS = [
     color: 'from-amber-950 via-slate-900 to-amber-900',
   },
   {
-    id: 'metamorfosis',
+    id: 'odisea',
     gutenbergId: 58221,
-    title: 'La Metamorfosis',
-    author: 'Franz Kafka',
+    title: 'La Odisea',
+    author: 'Homero',
     format: 'EPUB',
     cover: 'https://www.gutenberg.org/cache/epub/58221/pg58221.cover.medium.jpg',
     epubUrl: 'https://www.gutenberg.org/ebooks/58221.epub3.images',
-    badge: 'Filosofía',
+    badge: 'Épica Clásica',
     color: 'from-indigo-950 via-slate-900 to-slate-950',
   },
   {
@@ -52,14 +52,14 @@ const FEATURED_CLASSICS = [
     color: 'from-sky-950 via-slate-900 to-slate-950',
   },
   {
-    id: 'orgullo',
+    id: 'gatsby',
     gutenbergId: 64317,
-    title: 'Orgullo y Prejuicio',
-    author: 'Jane Austen',
+    title: 'The Great Gatsby',
+    author: 'F. Scott Fitzgerald',
     format: 'EPUB',
     cover: 'https://www.gutenberg.org/cache/epub/64317/pg64317.cover.medium.jpg',
     epubUrl: 'https://www.gutenberg.org/ebooks/64317.epub3.images',
-    badge: 'Romance',
+    badge: 'Siglo XX',
     color: 'from-rose-950 via-slate-900 to-slate-950',
   }
 ];
@@ -283,60 +283,58 @@ export default function LibraryView({
         )}
       </AnimatePresence>
 
-      {/* 1. BARRA SUPERIOR TOTALMENTE DESPEJADA: SOLO MENÚ ☰ Y BÚSQUEDA */}
-      <header className="sticky top-0 z-40 glass-panel safe-top px-3 sm:px-5 py-2.5 border-b border-white/[0.06]">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2.5">
+      {/* 1. BARRA SUPERIOR ELEGANTE Y ESPACIOSA */}
+      <header className="sticky top-0 z-40 glass-panel safe-top px-4 sm:px-6 py-3 border-b border-white/[0.08] shadow-sm">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           {/* Lado Izquierdo: Botón Hamburguesa ☰ + Título */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setIsDrawerOpen(true)}
-              className="relative w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 text-slate-200 flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+              className="relative w-11 h-11 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer flex-shrink-0 border border-white/10 shadow-sm"
               title="Abrir menú de navegación"
               aria-label="Abrir menú"
             >
               <Menu className="w-5 h-5" />
               {hasUpdate && (
-                <span className="absolute 1 top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-950 animate-ping" />
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-slate-950 animate-ping" />
               )}
             </button>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-extrabold text-white tracking-tight leading-none truncate">
-                  {filterTitles[activeFilter] || 'Mi Biblioteca'}
-                </h1>
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25 flex-shrink-0">
-                  {filteredBooks.length}
-                </span>
-              </div>
+            <div className="min-w-0 flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-black text-white tracking-tight leading-none truncate">
+                {filterTitles[activeFilter] || 'Mi Biblioteca'}
+              </h1>
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex-shrink-0">
+                {filteredBooks.length}
+              </span>
             </div>
           </div>
 
-          {/* Lado Derecho: Acciones rápidas (Búsqueda + Importar) */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Lado Derecho: Acciones rápidas (Catálogo + Importar) con botones generosos y texto visible */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Botón rápido Explorar Catálogo */}
             <button
               onClick={() => setShowCatalog(true)}
-              className="h-8.5 px-3 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-95 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              className="h-10 px-3.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-95 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
               title="Descargar libros de Gutenberg"
             >
-              <Compass className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="hidden xs:inline">Catálogo</span>
+              <Compass className="w-4 h-4 text-indigo-400" />
+              <span>Catálogo</span>
             </button>
 
             {/* Botón Importar */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="h-8.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+              className="h-10 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 active:scale-95 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
               title="Importar libro"
             >
               {uploading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <Plus className="w-4 h-4 stroke-[3]" />
               )}
-              <span className="hidden xs:inline">Importar</span>
+              <span>Importar</span>
             </button>
           </div>
         </div>
@@ -482,108 +480,121 @@ export default function LibraryView({
           </>
         ) : (
           /* ==========================================================
-             ESTADO CUANDO LA BIBLIOTECA ESTÁ VACÍA
-             (APROVECHAMIENTO MÁXIMO DEL ESPACIO CON RECOMENDACIONES)
+             ESTADO CUANDO LA BIBLIOTECA ESTÁ VACÍA (HIGH-END DESIGN)
              ========================================================== */
-          <div className="flex-1 flex flex-col gap-5 py-2">
-            {/* Banner de Bienvenida e Importación Rápida */}
-            <div className="relative rounded-2xl overflow-hidden p-4 sm:p-6 bg-gradient-to-r from-amber-500/10 via-slate-900 to-indigo-500/10 border border-white/10 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5 text-center sm:text-left">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0 text-amber-400">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                    Tu biblioteca personal está lista
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Importa tus propios archivos o elige uno de los clásicos gratuitos de abajo.
-                  </p>
-                </div>
-              </div>
+          <div className="flex-1 flex flex-col gap-6 py-2">
+            {/* Double-Bezel Hero Card de Bienvenida */}
+            <div className="rounded-[2rem] p-1 bg-white/[0.04] border border-white/10 shadow-2xl">
+              <div className="rounded-[calc(2rem-0.25rem)] p-5 sm:p-6 bg-gradient-to-br from-amber-500/15 via-slate-900/95 to-indigo-950/40 relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-5">
+                <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -left-10 -top-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full sm:w-auto h-10 px-5 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/20 cursor-pointer flex-shrink-0"
-              >
-                {uploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4" />
-                )}
-                <span>Subir archivo (.epub, .pdf, .cbz)</span>
-              </button>
+                <div className="flex items-center gap-4 text-center sm:text-left relative z-10">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0 text-amber-400 shadow-xl shadow-amber-500/20">
+                    <BookOpen className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em] bg-amber-400/15 text-amber-300 border border-amber-400/25 mb-1.5">
+                      <Sparkles className="w-3 h-3" /> Tu Biblioteca Offline
+                    </span>
+                    <h2 className="text-base sm:text-xl font-black text-white tracking-tight">
+                      Tu refugio de lectura está listo
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed max-w-lg">
+                      Importa tus archivos en <strong>EPUB, PDF o CBZ (Manga)</strong>, o comienza ahora mismo con una de las lecturas recomendadas abajo.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full sm:w-auto h-12 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 active:scale-[0.97] text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-amber-500/25 cursor-pointer flex-shrink-0 relative z-10"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-slate-950/20 flex items-center justify-center">
+                    {uploading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5 stroke-[2.5]" />
+                    )}
+                  </div>
+                  <span>Importar Archivo</span>
+                </button>
+              </div>
             </div>
 
             {/* SECCIÓN 1: Lecturas instantáneas de prueba (1 Toque, Sin Internet) */}
             <div>
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-400" />
-                  <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">
-                    Lecturas de prueba inmediata
+                  <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider">
+                    Lecturas instantáneas de prueba
                   </h3>
                 </div>
-                <span className="text-[11px] text-slate-400">Listos en 1 segundo</span>
+                <span className="text-xs font-semibold text-amber-400/80">Sin internet • Listas para leer</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {/* Demo El Principito */}
-                <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-white/10 hover:border-amber-500/40 transition-all flex items-center justify-between gap-3 shadow-sm">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-14 rounded-lg bg-gradient-to-br from-amber-600 to-amber-950 border border-amber-400/30 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <BookOpen className="w-5 h-5 text-amber-300" />
+                <div className="p-4 rounded-2xl bg-slate-900/90 border border-white/10 hover:border-amber-500/40 transition-all flex items-center justify-between gap-3 shadow-lg group">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-12 h-16 rounded-xl bg-gradient-to-br from-amber-500 to-amber-950 border border-amber-400/30 flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                      <BookOpen className="w-6 h-6 text-amber-200" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">Novela EPUB</span>
-                      <h4 className="text-xs sm:text-sm font-bold text-white truncate">El Principito</h4>
-                      <p className="text-[11px] text-slate-400 truncate">Antoine de Saint-Exupéry</p>
+                      <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-wide block">Novela EPUB</span>
+                      <h4 className="text-sm font-bold text-white truncate mt-0.5 group-hover:text-amber-300 transition-colors">El Principito</h4>
+                      <p className="text-xs text-slate-400 truncate">Antoine de Saint-Exupéry</p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => handleQuickAddSample('epub')}
                     disabled={downloadingClassicId === 'sample_epub'}
-                    className="h-8 px-3 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5 flex-shrink-0 transition-all cursor-pointer"
+                    className="h-11 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.97] text-slate-950 text-xs font-black flex items-center gap-2 flex-shrink-0 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
                   >
-                    {downloadingClassicId === 'sample_epub' ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : classicSuccessId === 'sample_epub' ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Download className="w-3.5 h-3.5" />
-                    )}
-                    <span>{classicSuccessId === 'sample_epub' ? '¡Listo!' : 'Probar'}</span>
+                    <div className="w-6 h-6 rounded-lg bg-slate-950/20 flex items-center justify-center">
+                      {downloadingClassicId === 'sample_epub' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : classicSuccessId === 'sample_epub' ? (
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      ) : (
+                        <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                      )}
+                    </div>
+                    <span>{classicSuccessId === 'sample_epub' ? '¡Listo!' : 'Leer demo'}</span>
                   </button>
                 </div>
 
                 {/* Demo Manga CBZ */}
-                <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-white/10 hover:border-purple-500/40 transition-all flex items-center justify-between gap-3 shadow-sm">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-14 rounded-lg bg-gradient-to-br from-purple-700 to-slate-950 border border-purple-400/30 flex items-center justify-center flex-shrink-0 shadow-md">
-                      <Layers className="w-5 h-5 text-purple-300" />
+                <div className="p-4 rounded-2xl bg-slate-900/90 border border-white/10 hover:border-purple-500/40 transition-all flex items-center justify-between gap-3 shadow-lg group">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-12 h-16 rounded-xl bg-gradient-to-br from-purple-600 to-slate-950 border border-purple-400/30 flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                      <Layers className="w-6 h-6 text-purple-200" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wide">Manga CBZ</span>
-                      <h4 className="text-xs sm:text-sm font-bold text-white truncate">Capítulo Demo Manga</h4>
-                      <p className="text-[11px] text-slate-400 truncate">Lectura japonesa (RTL)</p>
+                      <span className="text-[10px] font-extrabold text-purple-400 uppercase tracking-wide block">Manga CBZ</span>
+                      <h4 className="text-sm font-bold text-white truncate mt-0.5 group-hover:text-purple-300 transition-colors">Capítulo Demo Manga</h4>
+                      <p className="text-xs text-slate-400 truncate">Lectura japonesa (RTL)</p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => handleQuickAddSample('cbz')}
                     disabled={downloadingClassicId === 'sample_cbz'}
-                    className="h-8 px-3 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 active:scale-95 border border-purple-500/30 text-purple-300 text-xs font-bold flex items-center gap-1.5 flex-shrink-0 transition-all cursor-pointer"
+                    className="h-11 px-4 rounded-2xl bg-purple-500 hover:bg-purple-400 active:scale-[0.97] text-white text-xs font-black flex items-center gap-2 flex-shrink-0 shadow-lg shadow-purple-500/20 transition-all cursor-pointer"
                   >
-                    {downloadingClassicId === 'sample_cbz' ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : classicSuccessId === 'sample_cbz' ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Download className="w-3.5 h-3.5" />
-                    )}
-                    <span>{classicSuccessId === 'sample_cbz' ? '¡Listo!' : 'Probar'}</span>
+                    <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
+                      {downloadingClassicId === 'sample_cbz' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                      ) : classicSuccessId === 'sample_cbz' ? (
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      ) : (
+                        <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                      )}
+                    </div>
+                    <span>{classicSuccessId === 'sample_cbz' ? '¡Listo!' : 'Leer demo'}</span>
                   </button>
                 </div>
               </div>
@@ -591,29 +602,30 @@ export default function LibraryView({
 
             {/* SECCIÓN 2: Clásicos recomendados de dominio público (Project Gutenberg) */}
             <div className="flex-1">
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2">
                   <Compass className="w-4 h-4 text-indigo-400" />
-                  <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">
+                  <h3 className="text-xs font-black text-slate-300 uppercase tracking-wider">
                     Clásicos recomendados gratuitos
                   </h3>
                 </div>
                 <button
                   onClick={() => setShowCatalog(true)}
-                  className="text-xs text-indigo-300 hover:text-indigo-200 hover:underline font-semibold cursor-pointer"
+                  className="text-xs text-indigo-300 hover:text-indigo-200 hover:underline font-bold flex items-center gap-1 cursor-pointer"
                 >
-                  Ver +70.000 títulos
+                  <span>Ver +70.000 títulos</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
                 {FEATURED_CLASSICS.map(item => (
                   <div
                     key={item.id}
-                    className="p-3 rounded-2xl bg-slate-900/90 border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between shadow-md group"
+                    className="p-3 rounded-2xl bg-slate-900/90 border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between shadow-xl group"
                   >
-                    {/* Portada miniatura */}
-                    <div className="aspect-[2.7/3.9] w-full rounded-xl overflow-hidden bg-slate-950 border border-white/5 relative mb-2.5 shadow-inner">
+                    {/* Portada miniatura con badge interno limpio */}
+                    <div className="aspect-[2.7/3.9] w-full rounded-xl overflow-hidden bg-slate-950 border border-white/10 relative mb-3 shadow-inner">
                       {item.cover ? (
                         <img 
                           src={item.cover} 
@@ -628,16 +640,16 @@ export default function LibraryView({
                           </span>
                         </div>
                       )}
-                      <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-950/80 text-amber-300 border border-white/10 backdrop-blur-md">
+                      <span className="absolute top-2 left-2 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-slate-950/85 text-amber-300 border border-amber-400/30 backdrop-blur-md shadow-md">
                         {item.badge}
                       </span>
                     </div>
 
-                    <div className="mb-2">
-                      <h4 className="text-xs font-bold text-white line-clamp-1 group-hover:text-amber-300 transition-colors">
+                    <div className="mb-2 px-0.5">
+                      <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-1 group-hover:text-amber-300 transition-colors">
                         {item.title}
                       </h4>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5 font-medium">
                         {item.author}
                       </p>
                     </div>
@@ -645,14 +657,14 @@ export default function LibraryView({
                     <button
                       onClick={() => handleQuickAddClassic(item)}
                       disabled={downloadingClassicId === item.id}
-                      className="w-full h-7.5 px-2 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-95 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      className="w-full h-10 mt-1 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 active:scale-[0.97] border border-indigo-500/40 text-indigo-200 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
                     >
                       {downloadingClassicId === item.id ? (
-                        <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-300" />
                       ) : classicSuccessId === item.id ? (
-                        <Check className="w-3 h-3 text-emerald-400" />
+                        <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
                       ) : (
-                        <Download className="w-3 h-3 text-indigo-400" />
+                        <Download className="w-4 h-4 text-indigo-300" />
                       )}
                       <span>
                         {downloadingClassicId === item.id 
@@ -668,32 +680,34 @@ export default function LibraryView({
             </div>
 
             {/* SECCIÓN 3: Formatos Compatibles */}
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+            <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
               <span className="font-semibold text-slate-300">Formatos 100% compatibles:</span>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold">EPUB</span>
-                <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-300 border border-rose-500/20 font-bold">PDF</span>
-                <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 font-bold">CBZ / Manga</span>
+                <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/25 font-extrabold text-[11px]">EPUB</span>
+                <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/25 font-extrabold text-[11px]">PDF</span>
+                <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/25 font-extrabold text-[11px]">CBZ / Manga</span>
               </div>
             </div>
           </div>
         )}
       </main>
 
-      {/* 3. BOTÓN FLOTANTE ERGONÓMICO (FAB) */}
+      {/* 3. BOTÓN FLOTANTE ERGONÓMICO (FAB) CON ARQUITECTURA BUTTON-IN-BUTTON */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.96 }}
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
-        className="fixed bottom-6 right-5 z-40 h-12 px-4.5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-extrabold text-xs sm:text-sm shadow-xl shadow-amber-500/30 flex items-center gap-2 border border-amber-300/40 transition-transform cursor-pointer safe-bottom"
+        className="fixed bottom-6 right-5 z-40 h-13 px-5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-black text-xs sm:text-sm shadow-2xl shadow-amber-500/35 flex items-center gap-2.5 border border-amber-300/50 transition-transform cursor-pointer safe-bottom"
         title="Agregar nuevo libro o manga"
       >
-        {uploading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Plus className="w-4 h-4 stroke-[3]" />
-        )}
+        <div className="w-7 h-7 rounded-xl bg-slate-950/20 flex items-center justify-center text-slate-950">
+          {uploading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4 stroke-[3]" />
+          )}
+        </div>
         <span>Agregar libro</span>
       </motion.button>
 
