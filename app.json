@@ -1,0 +1,22 @@
+﻿{
+  "expo": {
+    "name": "Kindle Clone",
+    "slug": "kindle-clone",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0f1724"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.xaoxay.kindleclone"
+    }
+  }
+}
