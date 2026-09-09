@@ -42,6 +42,11 @@ allprojects {
         targetSdkVersion = 34
         ndkVersion = "23.1.7779620"
     }
+    configurations.all {
+        resolutionStrategy {
+            force 'com.google.errorprone:error_prone_annotations:2.20.0'
+        }
+    }
     repositories {
         maven {
             // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
