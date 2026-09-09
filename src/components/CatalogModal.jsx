@@ -9,7 +9,9 @@ import { createSampleEpub } from '../utils/sampleBook';
 import { createSampleManga } from '../utils/sampleManga';
 import { extractUniversalMetadata } from '../utils/universalParser';
 import { saveBookFile, saveBookMetadata } from '../db/bookStorage';
-import { searchOnlineBooks, getPopularBooks, downloadBookBuffer } from '../services/onlineCatalog';
+import { 
+  searchOnlineBooks, getPopularBooks, searchCuratedBooks, downloadBookBuffer 
+} from '../services/onlineCatalog';
 import { hapticLight, hapticSuccess } from '../services/haptics';
 
 export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBook }) {
@@ -41,9 +43,14 @@ export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBo
       setOnlineError(null);
       const res = await getPopularBooks(language);
       setOnlineBooks(res.results || []);
+      if (res.notice) {
+        console.info(res.notice);
+      }
     } catch (err) {
       console.error(err);
-      setOnlineError('No se pudieron cargar los libros online. Revisa tu conexión.');
+      // Fallback garantizado a clásicos locales verificados
+      const fallback = searchCuratedBooks('', language);
+      setOnlineBooks(fallback);
     } finally {
       setLoadingOnline(false);
     }
@@ -60,12 +67,16 @@ export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBo
       setOnlineError(null);
       const res = await searchOnlineBooks(searchQuery, { language });
       setOnlineBooks(res.results || []);
-      if (res.results.length === 0) {
-        setOnlineError('No se encontraron libros con esa búsqueda. Prueba con otra palabra clave.');
+      if (!res.results || res.results.length === 0) {
+        setOnlineError('No se encontraron libros con esa búsqueda. Prueba con otro autor o término.');
       }
     } catch (err) {
       console.error(err);
-      setOnlineError('Error al buscar libros en línea. Por favor reintenta.');
+      const fallback = searchCuratedBooks(searchQuery, language);
+      setOnlineBooks(fallback);
+      if (fallback.length === 0) {
+        setOnlineError('No se encontraron resultados en el catálogo. Prueba con otra palabra clave.');
+      }
     } finally {
       setLoadingOnline(false);
     }
@@ -314,65 +325,97 @@ export default function CatalogModal({ isOpen, onClose, onRefreshBooks, onOpenBo
             {activeTab === 'online' ? (
               /* PESTAÑA 1: BUSCADOR ONLINE GUTENDEX */
               <div className="space-y-4">
-                {/* Formulario de búsqueda */}
-                <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2.5">
-                  <div className="relative flex-1">
+                {/* Formulario de búsqueda simétrico y espacioso */}
+                <form onSubmit={handleSearchSubmit} className="space-y-2.5">
+                  {/* Fila 1: Input de búsqueda a ancho completo */}
+                  <div className="relative w-full">
                     <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="Buscar por título, autor o género (ej. Cervantes, Poe, Drácula)..."
+                      placeholder="Buscar por título, autor o género (ej. Cervantes, Sherlock, Drácula)..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full h-12 pl-11 pr-10 bg-slate-800/80 border border-white/10 rounded-2xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
+                      className="w-full h-12 pl-11 pr-10 bg-slate-800/80 border border-white/10 rounded-2xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/20 transition-colors shadow-inner"
                     />
                     {searchQuery && (
                       <button
                         type="button"
                         onClick={() => { setSearchQuery(''); loadPopular(); }}
-                        className="w-9 h-9 absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 flex items-center justify-center"
+                        className="w-8 h-8 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white flex items-center justify-center rounded-xl hover:bg-white/10 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {/* Selector de idioma */}
-                    <div className="relative">
+                  {/* Fila 2: Controles simétricos (Selector de idioma + Botón Buscar) */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* Selector de idioma estilizado sin solapamientos */}
+                    <div className="relative h-11 bg-slate-800/90 border border-white/10 rounded-xl flex items-center px-3">
+                      <Languages className="w-4 h-4 text-amber-400 flex-shrink-0 mr-2 pointer-events-none" />
                       <select
                         value={language}
                         onChange={e => {
-                          setLanguage(e.target.value);
+                          const newLang = e.target.value;
+                          setLanguage(newLang);
                           if (searchQuery.trim()) {
-                            searchOnlineBooks(searchQuery, { language: e.target.value })
+                            searchOnlineBooks(searchQuery, { language: newLang })
                               .then(res => setOnlineBooks(res.results || []));
                           } else {
-                            getPopularBooks(e.target.value)
+                            getPopularBooks(newLang)
                               .then(res => setOnlineBooks(res.results || []));
                           }
                         }}
-                        className="h-12 px-3.5 bg-slate-800 border border-white/10 rounded-2xl text-xs sm:text-sm font-semibold text-slate-200 focus:outline-none focus:border-amber-500 appearance-none pr-8 cursor-pointer"
+                        className="w-full bg-transparent text-xs sm:text-sm font-bold text-slate-200 focus:outline-none cursor-pointer pr-4 appearance-none"
                       >
-                        <option value="es">🇪🇸 Español</option>
-                        <option value="all">🌍 Todos los idiomas</option>
-                        <option value="en">🇬🇧 Inglés</option>
-                        <option value="fr">🇫🇷 Francés</option>
+                        <option value="es" className="bg-slate-900 text-white">🇪🇸 Español</option>
+                        <option value="all" className="bg-slate-900 text-white">🌍 Todos los idiomas</option>
+                        <option value="en" className="bg-slate-900 text-white">🇬🇧 Inglés</option>
+                        <option value="fr" className="bg-slate-900 text-white">🇫🇷 Francés</option>
                       </select>
-                      <Languages className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <div className="absolute right-3 pointer-events-none text-slate-400 text-[10px]">▼</div>
                     </div>
 
+                    {/* Botón Buscar simétrico con altura h-11 idéntica */}
                     <button
                       type="submit"
                       disabled={loadingOnline}
-                      className="h-12 px-5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 active:scale-95 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/20 flex-shrink-0"
+                      className="h-11 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-yellow-400 active:scale-97 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/20 cursor-pointer disabled:opacity-50"
                     >
                       {loadingOnline ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Search className="w-4 h-4 stroke-[2.5]" />
                       )}
-                      <span>Buscar</span>
+                      <span>Buscar libros</span>
                     </button>
+                  </div>
+
+                  {/* Fila 3: Chips de géneros rápidos */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
+                    {['Todos', 'Aventuras', 'Misterio', 'Terror', 'Filosofía', 'Romance', 'Ciencia Ficción'].map(g => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => {
+                          hapticLight();
+                          if (g === 'Todos') {
+                            setSearchQuery('');
+                            loadPopular();
+                          } else {
+                            setSearchQuery(g);
+                            searchOnlineBooks(g, { language }).then(res => setOnlineBooks(res.results || []));
+                          }
+                        }}
+                        className={`h-7 px-3 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                          (g === 'Todos' && !searchQuery) || searchQuery === g
+                            ? 'bg-amber-400 text-slate-950 font-extrabold'
+                            : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
                   </div>
                 </form>
 

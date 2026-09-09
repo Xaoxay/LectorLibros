@@ -208,17 +208,27 @@ export default function SidebarDrawer({
                 {renderNavGroup(formatSections)}
               </div>
 
-              {/* Botón Importar Libro */}
-              <div>
+              {/* ÚNICO BOTÓN PRINCIPAL PARA SUBIR LIBROS */}
+              <div className="pt-1">
                 <button
                   onClick={() => {
                     onClose();
                     onImportClick();
                   }}
-                  className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-yellow-400 active:scale-[0.98] text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-amber-500/25 cursor-pointer"
+                  className="w-full p-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 hover:brightness-105 active:scale-[0.97] text-slate-950 flex items-center gap-3.5 transition-all shadow-xl shadow-amber-500/25 cursor-pointer border border-amber-300/40 group"
+                  title="Subir libro desde tu dispositivo"
                 >
-                  <Upload className="w-5 h-5 stroke-[2.5]" />
-                  <span>Importar Archivo</span>
+                  <div className="w-11 h-11 rounded-xl bg-slate-950/20 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Upload className="w-6 h-6 stroke-[2.5]" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <span className="font-black text-sm block leading-tight text-slate-950">
+                      Subir Libro a la Biblioteca
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-900/80 block truncate mt-0.5">
+                      Archivos EPUB, PDF o CBZ (Manga)
+                    </span>
+                  </div>
                 </button>
               </div>
 

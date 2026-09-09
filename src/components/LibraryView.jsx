@@ -271,7 +271,7 @@ export default function LibraryView({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="min-h-full w-full ambient-glow text-slate-100 flex flex-col relative transition-colors duration-300 pb-40"
+      className="min-h-full w-full ambient-glow text-slate-100 flex flex-col relative transition-colors duration-300 pb-24 sm:pb-28"
     >
       {/* Overlay Drag & Drop */}
       <AnimatePresence>
@@ -319,25 +319,21 @@ export default function LibraryView({
             </div>
           </div>
 
-          {/* Lado Derecho: Acciones rápidas (Importar) */}
+          {/* Lado Derecho: Indicador sutil si hay actualización disponible */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Botón Importar con feedback táctil */}
-            <button
-              onClick={() => {
-                hapticMedium();
-                fileInputRef.current?.click();
-              }}
-              disabled={uploading}
-              className="h-11 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 active:scale-95 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
-              title="Importar libro nuevo"
-            >
-              {uploading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4 stroke-[3]" />
-              )}
-              <span>Importar</span>
-            </button>
+            {hasUpdate && (
+              <button
+                onClick={() => {
+                  hapticLight();
+                  onOpenUpdates();
+                }}
+                className="h-9 px-3 rounded-xl bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 active:scale-95 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Actualización disponible"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+                <span className="hidden sm:inline">Actualizar</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -394,23 +390,23 @@ export default function LibraryView({
               <ContinueReadingHero book={heroBook} onOpen={onOpenBook} />
             )}
 
-            {/* Buscador de libros compacto */}
+            {/* Buscador de libros simétrico y pulido */}
             <div className="mb-4">
               <div className="relative w-full">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Buscar en la biblioteca por título o autor..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="w-full h-10 pl-10 pr-9 bg-slate-900/90 border border-white/10 rounded-xl text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+                  className="w-full h-12 pl-11 pr-11 bg-slate-900/80 backdrop-blur-sm border border-white/10 rounded-2xl text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/20 transition-all shadow-inner"
                 />
                 {search && (
                   <button
-                    onClick={() => setSearch('')}
-                    className="w-8 h-8 absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white flex items-center justify-center rounded-lg"
+                    onClick={() => { hapticLight(); setSearch(''); }}
+                    className="w-9 h-9 absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -503,24 +499,20 @@ export default function LibraryView({
                       Tu refugio de lectura está listo
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed max-w-lg">
-                      Importa tus archivos en <strong>EPUB, PDF o CBZ (Manga)</strong>, o comienza ahora mismo con una de las lecturas recomendadas abajo.
+                      Sube tus libros desde la <strong>barra lateral ☰</strong> o comienza ahora mismo con una de las lecturas recomendadas abajo.
                     </p>
                   </div>
                 </div>
 
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="w-full sm:w-auto h-12 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 active:scale-[0.97] text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-amber-500/25 cursor-pointer flex-shrink-0 relative z-10"
+                  onClick={() => {
+                    hapticLight();
+                    setIsDrawerOpen(true);
+                  }}
+                  className="w-full sm:w-auto h-11 px-5 rounded-xl bg-white/10 hover:bg-white/15 active:scale-[0.97] border border-white/10 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer flex-shrink-0 relative z-10"
                 >
-                  <div className="w-6 h-6 rounded-lg bg-slate-950/20 flex items-center justify-center">
-                    {uploading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="w-3.5 h-3.5 stroke-[2.5]" />
-                    )}
-                  </div>
-                  <span>Importar Archivo</span>
+                  <Menu className="w-4 h-4 text-amber-400" />
+                  <span>Abrir barra lateral</span>
                 </button>
               </div>
             </div>
@@ -694,27 +686,6 @@ export default function LibraryView({
         )}
       </main>
 
-      {/* 3. BOTÓN FLOTANTE EXTENDIDO MATERIAL 3 (FAB) */}
-      <motion.button
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.94 }}
-        onClick={() => {
-          hapticMedium();
-          fileInputRef.current?.click();
-        }}
-        disabled={uploading}
-        className="fixed bottom-22 sm:bottom-24 right-4 sm:right-6 z-30 h-14 px-5 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-slate-950 font-black text-xs sm:text-sm shadow-2xl shadow-amber-500/35 flex items-center gap-2.5 border border-amber-300/50 transition-transform cursor-pointer"
-        title="Agregar nuevo libro o manga"
-      >
-        <div className="w-7 h-7 rounded-xl bg-slate-950/20 flex items-center justify-center text-slate-950">
-          {uploading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Plus className="w-4 h-4 stroke-[3]" />
-          )}
-        </div>
-        <span>Agregar libro</span>
-      </motion.button>
 
       {/* Barra lateral deslizable (Sidebar Drawer para Formatos y Ajustes) */}
       <SidebarDrawer
