@@ -21,7 +21,7 @@ export default function PdfReaderView({ bookMeta, bookBuffer, onBack }) {
   const [currentPage, setCurrentPage] = useState(bookMeta.lastPage || 1);
   const [totalPages, setTotalPages] = useState(bookMeta.totalPages || 1);
   const [zoomScale, setZoomScale] = useState(1.0);
-  const [colorMode, setColorMode] = useState('dark');
+  const [colorMode, setColorMode] = useState('sepia');
   const [flipState, setFlipState] = useState(null); // 'next' | 'prev' | null
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showScrubber, setShowScrubber] = useState(false);
@@ -182,11 +182,11 @@ export default function PdfReaderView({ bookMeta, bookBuffer, onBack }) {
     isDraggingRef.current = false;
     dragOffsetRef.current = 0;
 
-    // Si fue arrastre con el dedo
+    // Si fue arrastre con el dedo (umbral 80px estilo Kindle Reanimated)
     if (wasDragging) {
-      if (diffX < -38) {
+      if (diffX < -80 || (diffX < -40 && elapsed < 350)) {
         changePage(1); // Deslizar hacia la izquierda = página siguiente
-      } else if (diffX > 38) {
+      } else if (diffX > 80 || (diffX > 40 && elapsed < 350)) {
         changePage(-1); // Deslizar hacia la derecha = página anterior
       }
       return;
@@ -247,56 +247,61 @@ export default function PdfReaderView({ bookMeta, bookBuffer, onBack }) {
           <header className="h-15 px-3 sm:px-5 flex items-center justify-between border-b border-black/10 dark:border-white/10 z-20 flex-shrink-0 safe-top">
             <button
               onClick={onBack}
-              className="w-11 h-11 rounded-2xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm"
+              className="px-3 h-10 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-95 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer font-bold text-xs sm:text-sm"
               title="Volver"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+              <span>Volver</span>
             </button>
 
-            <div className="flex-1 px-2 sm:px-4 text-center min-w-0">
-              <span className="font-serif italic text-xs sm:text-sm font-semibold tracking-wider opacity-85 truncate block">
+            <div className="flex-1 px-2 text-center min-w-0 flex flex-col items-center justify-center">
+              <span className="font-serif italic text-xs sm:text-sm font-semibold tracking-wider opacity-85 truncate block max-w-[180px] sm:max-w-xs">
                 {bookMeta.title}
+              </span>
+              <span className="text-[10px] sm:text-[11px] font-bold opacity-65 tracking-wide">
+                Pág. {currentPage}/{totalPages} ({Math.round((currentPage / totalPages) * 100)}%)
               </span>
             </div>
 
             <div className="flex items-center gap-1 sm:gap-1.5">
               <button
                 onClick={() => setSoundEnabled(prev => !prev)}
-                className="w-11 h-11 rounded-2xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all opacity-80 hover:opacity-100 shadow-sm"
+                className="w-10 h-10 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all opacity-80 hover:opacity-100 shadow-sm cursor-pointer"
                 title={soundEnabled ? 'Silenciar sonido de páginas' : 'Activar sonido de páginas'}
               >
-                {soundEnabled ? <Volume2 className="w-5 h-5 text-amber-500" /> : <VolumeX className="w-5 h-5" />}
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-amber-500" /> : <VolumeX className="w-4 h-4" />}
               </button>
 
               <button
                 onClick={() => setColorMode(prev => prev === 'dark' ? 'sepia' : prev === 'sepia' ? 'normal' : 'dark')}
-                className="w-11 h-11 rounded-2xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm"
+                className="w-10 h-10 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm cursor-pointer"
                 title="Modo de color"
               >
-                {colorMode === 'dark' ? <Moon className="w-5 h-5 text-amber-500" /> : <Sun className="w-5 h-5" />}
+                {colorMode === 'dark' ? <Moon className="w-4 h-4 text-amber-500" /> : <Sun className="w-4 h-4" />}
               </button>
 
               <button
                 onClick={() => handleZoom(0.85)}
-                className="w-11 h-11 rounded-2xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm"
+                className="w-10 h-10 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm cursor-pointer"
                 title="Alejar"
               >
-                <ZoomOut className="w-5 h-5" />
+                <ZoomOut className="w-4 h-4" />
               </button>
               <button
                 onClick={() => handleZoom(1.15)}
-                className="w-11 h-11 rounded-2xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm"
+                className="w-10 h-10 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm cursor-pointer"
                 title="Acercar"
               >
-                <ZoomIn className="w-5 h-5" />
+                <ZoomIn className="w-4 h-4" />
               </button>
             </div>
           </header>
 
-          {/* 2. ÁREA DEL DOCUMENTO PDF CON ARRASTRE TÁCTIL */}
+          {/* 2. ÁREA DEL DOCUMENTO PDF CON ARRASTRE TÁCTIL 3D */}
           <main 
             ref={containerRef}
             className="flex-1 w-full h-full overflow-hidden flex items-center justify-center p-2 relative book-touch-surface"
+            style={{ perspective: '1000px' }}
           >
             {loading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-inherit z-30 pointer-events-none">
@@ -308,13 +313,13 @@ export default function PdfReaderView({ bookMeta, bookBuffer, onBack }) {
             {/* EFECTO DE HOJA DE PAPEL VOLTEÁNDOSE EN 3D */}
             <PageFlipEffect flipping={flipState} theme={colorMode === 'normal' ? 'light' : colorMode} />
 
-            {/* Hoja del PDF con deformación y desplazamiento dinámico con el dedo */}
+            {/* Hoja del PDF con deformación y desplazamiento dinámico 3D con el dedo */}
             <div
               style={{
                 transform: isDragging 
-                  ? `translateX(${Math.max(-140, Math.min(140, dragOffset))}px) rotateY(${Math.max(-16, Math.min(16, dragOffset * -0.1))}deg)` 
+                  ? `translateX(${dragOffset}px) rotateY(${Math.max(-28, Math.min(28, dragOffset / 25))}deg)` 
                   : 'none',
-                transition: isDragging ? 'none' : 'transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                transition: isDragging ? 'none' : 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1)',
                 transformOrigin: dragOffset < 0 ? 'left center' : 'right center',
               }}
               className="w-full h-full flex items-center justify-center pointer-events-none"

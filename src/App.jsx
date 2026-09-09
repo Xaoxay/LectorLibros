@@ -5,8 +5,10 @@ import ReaderView from './components/ReaderView';
 import PdfReaderView from './components/PdfReaderView';
 import MangaReaderView from './components/MangaReaderView';
 import UpdateModal from './components/UpdateModal';
+import AuthModal from './components/AuthModal';
 import { getBooks, getBookFile } from './db/bookStorage';
 import { checkForUpdates, getUpdateSettings } from './services/updateService';
+import { subscribeAuth } from './services/firebase';
 import { Loader2, Sparkles, ArrowUpCircle } from 'lucide-react';
 
 export default function App() {
@@ -17,9 +19,20 @@ export default function App() {
   const [loadingBook, setLoadingBook] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
 
+  // Estado de Autenticación y Nube (Firebase)
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   // Estado de Actualizaciones
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAuth((user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   // Capturar evento de instalación PWA nativa en Android/PC
   useEffect(() => {
@@ -183,10 +196,20 @@ export default function App() {
               installPrompt={installPrompt}
               hasUpdate={!!updateAvailable}
               onOpenUpdates={() => setShowUpdateModal(true)}
+              currentUser={currentUser}
+              onOpenAuth={() => setShowAuthModal(true)}
             />
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal de Autenticación y Nube (Kindle Clone / Firebase) */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        currentUser={currentUser}
+        onUserChange={(user) => setCurrentUser(user)}
+      />
 
       {/* Modal de Actualizaciones */}
       <UpdateModal

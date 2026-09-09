@@ -4,7 +4,7 @@ import {
   BookOpen, Plus, Upload, Search, Smartphone, 
   Sparkles, Compass, Download, X, Layers, Loader2, AlertCircle,
   ArrowUpCircle, Check, Menu, Filter, ArrowRight, Heart, CheckCircle2,
-  ChevronRight
+  ChevronRight, User, Cloud
 } from 'lucide-react';
 import Book3DCard from './Book3DCard';
 import ContinueReadingHero from './ContinueReadingHero';
@@ -18,6 +18,7 @@ import { hapticLight, hapticMedium, hapticSuccess } from '../services/haptics';
 import { createSampleEpub } from '../utils/sampleBook';
 import { createSampleManga } from '../utils/sampleManga';
 import { downloadBookBuffer } from '../services/onlineCatalog';
+import { uploadBookToCloud } from '../services/firebase';
 
 // Clásicos universales listos para descarga directa en 1 toque
 const FEATURED_CLASSICS = [
@@ -74,6 +75,8 @@ export default function LibraryView({
   installPrompt,
   hasUpdate,
   onOpenUpdates,
+  currentUser,
+  onOpenAuth,
 }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -113,6 +116,13 @@ export default function LibraryView({
       });
 
       await onRefreshBooks();
+
+      // Sincronización en la nube si hay sesión activa en Firebase
+      if (currentUser && !currentUser.isAnonymous) {
+        uploadBookToCloud(file, meta, currentUser.uid).catch(err => {
+          console.warn('Sincronización en la nube (background):', err);
+        });
+      }
     } catch (err) {
       console.error(err);
       setErrorMessage(err.message || 'No se pudo leer el archivo.');
@@ -319,8 +329,35 @@ export default function LibraryView({
             </div>
           </div>
 
-          {/* Lado Derecho: Indicador sutil si hay actualización disponible */}
+          {/* Lado Derecho: Botón de Cuenta / Nube + Actualizaciones */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {onOpenAuth && (
+              <button
+                onClick={() => {
+                  hapticLight();
+                  onOpenAuth();
+                }}
+                className={`h-9 px-3 rounded-xl border flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer text-xs font-bold ${
+                  currentUser && !currentUser.isAnonymous
+                    ? 'bg-[#4a6fff]/15 border-[#4a6fff]/30 text-[#7392ff]'
+                    : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                }`}
+                title={currentUser && !currentUser.isAnonymous ? `Conectado como ${currentUser.email}` : "Iniciar sesión / Cuenta"}
+              >
+                {currentUser && !currentUser.isAnonymous ? (
+                  <>
+                    <Cloud className="w-3.5 h-3.5 text-[#4a6fff]" />
+                    <span className="max-w-[70px] sm:max-w-[120px] truncate">{currentUser.email.split('@')[0]}</span>
+                  </>
+                ) : (
+                  <>
+                    <User className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Cuenta</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {hasUpdate && (
               <button
                 onClick={() => {
@@ -349,6 +386,30 @@ export default function LibraryView({
 
       {/* 2. CONTENIDO PRINCIPAL CON MÁXIMO ESPACIO PARA LECTURA */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-5 flex flex-col">
+        {/* BOTÓN PROMINENTE "SUBIR LIBRO" (KINDLE CLONE DESIGN) */}
+        <div className="mb-3.5">
+          <button
+            onClick={() => {
+              hapticLight();
+              fileInputRef.current?.click();
+            }}
+            disabled={uploading}
+            className="w-full py-3.5 px-4 rounded-2xl bg-[#4a6fff] hover:bg-[#3d5fe6] active:scale-[0.98] text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl shadow-[#4a6fff]/25 transition-all cursor-pointer border border-[#6e8eff]/30"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Procesando libro...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-5 h-5 stroke-[2.5]" />
+                <span>Subir libro</span>
+                <span className="text-xs font-semibold opacity-85 hidden sm:inline">• EPUB, PDF o CBZ (Manga)</span>
+              </>
+            )}
+          </button>
+        </div>
         {/* Mensaje de error si ocurre */}
         {errorMessage && (
           <motion.div 
@@ -516,6 +577,8 @@ export default function LibraryView({
         onQuickAddSample={handleQuickAddSample}
         sampleLoadingId={downloadingClassicId}
         sampleSuccessId={classicSuccessId}
+        currentUser={currentUser}
+        onOpenAuth={onOpenAuth}
       />
 
       {/* Modales y Hojas Inferiores */}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Compass, Layers, FileText, CheckCircle2, Heart,
   Upload, ArrowUpCircle, X, Sparkles, Smartphone, ChevronRight, HardDrive,
-  ArrowRight, Loader2, Check
+  ArrowRight, Loader2, Check, User, Cloud
 } from 'lucide-react';
 import { APP_VERSION } from '../config/version';
 
@@ -27,6 +27,8 @@ export default function SidebarDrawer({
   onQuickAddSample,
   sampleLoadingId,
   sampleSuccessId,
+  currentUser,
+  onOpenAuth,
 }) {
   const librarySections = [
     {
@@ -317,16 +319,38 @@ export default function SidebarDrawer({
               </div>
 
               {/* Tarjeta de información de almacenamiento (llena el espacio vacío con valor) */}
+              {/* Tarjeta de Cuenta y Nube (Firebase / Local) */}
               <div className="mt-auto pt-4">
-                <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-3 text-xs text-slate-400">
-                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 flex-shrink-0">
-                    <HardDrive className="w-4 h-4" />
+                <button
+                  onClick={() => {
+                    onClose();
+                    if (onOpenAuth) onOpenAuth();
+                  }}
+                  className="w-full p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-white/20 active:scale-[0.98] flex items-center justify-between gap-3 text-xs text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      currentUser && !currentUser.isAnonymous
+                        ? 'bg-[#4a6fff]/20 text-[#6e8eff]'
+                        : 'bg-amber-500/10 text-amber-400'
+                    }`}>
+                      {currentUser && !currentUser.isAnonymous ? (
+                        <Cloud className="w-4 h-4" />
+                      ) : (
+                        <User className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0 leading-tight">
+                      <span className="font-bold text-slate-200 block truncate">
+                        {currentUser && !currentUser.isAnonymous ? currentUser.email : 'Mi Cuenta / Nube'}
+                      </span>
+                      <span className="text-[11px] text-slate-400 block truncate">
+                        {currentUser && !currentUser.isAnonymous ? 'Sincronización activa' : 'Inicia sesión o lee offline'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0 leading-tight">
-                    <span className="font-bold text-slate-200 block truncate">Almacenamiento Local</span>
-                    <span className="text-[11px] text-slate-500">Tus libros se guardan en tu celular para leer offline.</span>
-                  </div>
-                </div>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors flex-shrink-0" />
+                </button>
               </div>
             </div>
 

@@ -159,10 +159,10 @@ input[type="range"]::-moz-range-thumb {
   z-index: 30;
 }
 
-/* Temas del papel del libro */
+/* Temas del papel del libro (Kindle Paperwarm #f5f1e8) */
 .paper-sepia {
-  background-color: #f6eedb !important;
-  color: #3b2d1d !important;
+  background-color: #f5f1e8 !important;
+  color: #2b251f !important;
 }
 
 .paper-light {

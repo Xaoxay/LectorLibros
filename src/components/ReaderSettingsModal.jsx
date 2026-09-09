@@ -9,7 +9,7 @@ export default function ReaderSettingsModal({ isOpen, onClose, settings, onUpdat
 
   const themes = [
     { id: 'light', label: 'Claro', bg: '#fbfbf8', text: '#1a1a1a', border: '#d4d4ce' },
-    { id: 'sepia', label: 'Sepia', bg: '#f5edd6', text: '#3c2f1f', border: '#d8cbb0' },
+    { id: 'sepia', label: 'Kindle Sepia', bg: '#f5f1e8', text: '#2b251f', border: '#d8cbb0' },
     { id: 'dark', label: 'Oscuro', bg: '#15181e', text: '#d8dee9', border: '#2e3440' },
     { id: 'amoled', label: 'AMOLED', bg: '#000000', text: '#e2e8f0', border: '#333333' },
   ];

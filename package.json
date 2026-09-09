@@ -21,6 +21,7 @@
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "canvas-confetti": "^1.9.4",
     "epubjs": "^0.3.93",
+    "firebase": "^12.19.0",
     "framer-motion": "^13.2.0",
     "idb-keyval": "^6.3.0",
     "lucide-react": "^1.42.0",

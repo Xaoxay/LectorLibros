@@ -209,34 +209,38 @@ export default function MangaReaderView({ bookMeta, bookBuffer, onBack }) {
           <div className="book-spine-crease-inner" />
           <div className="book-page-stack-right" />
 
-          {/* 1. ENCABEZADO INTEGRADO (NO SUPERPUESTO) */}
-          <header className="h-15 px-3 sm:px-5 flex items-center justify-between border-b border-white/10 z-20 flex-shrink-0 safe-top">
+          {/* 1. ENCABEZADO INTEGRADO */}
+          <header className="h-14 sm:h-15 px-3 sm:px-5 flex items-center justify-between border-b border-white/10 z-20 flex-shrink-0 safe-top">
             <button
               onClick={onBack}
-              className="w-11 h-11 rounded-2xl hover:bg-white/10 active:scale-90 text-slate-100 flex items-center justify-center transition-all shadow-sm"
+              className="px-3 h-10 rounded-xl hover:bg-white/10 active:scale-95 text-slate-100 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer font-bold text-xs sm:text-sm"
               title="Volver"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+              <span>Volver</span>
             </button>
 
-            <div className="flex-1 px-2 sm:px-4 text-center min-w-0">
-              <span className="font-serif italic text-xs sm:text-sm font-semibold tracking-wider opacity-85 truncate block text-slate-200">
+            <div className="flex-1 px-2 text-center min-w-0 flex flex-col items-center justify-center">
+              <span className="font-serif italic text-xs sm:text-sm font-semibold tracking-wider opacity-85 truncate block text-slate-200 max-w-[180px] sm:max-w-xs">
                 {bookMeta.title}
+              </span>
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 tracking-wide">
+                Pág. {currentPage + 1}/{totalPages} ({progressPercent}%)
               </span>
             </div>
 
             <div className="flex items-center gap-1 sm:gap-1.5">
               <button
                 onClick={() => setSoundEnabled(prev => !prev)}
-                className="w-11 h-11 rounded-2xl hover:bg-white/10 active:scale-90 text-slate-100 flex items-center justify-center transition-all opacity-80 hover:opacity-100 shadow-sm"
+                className="w-10 h-10 rounded-xl hover:bg-white/10 active:scale-90 text-slate-100 flex items-center justify-center transition-all opacity-80 hover:opacity-100 shadow-sm cursor-pointer"
                 title={soundEnabled ? 'Silenciar sonido de páginas' : 'Activar sonido de páginas'}
               >
-                {soundEnabled ? <Volume2 className="w-5 h-5 text-amber-500" /> : <VolumeX className="w-5 h-5" />}
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-amber-500" /> : <VolumeX className="w-4 h-4" />}
               </button>
 
               <button
                 onClick={() => setMode(prev => prev === 'rtl' ? 'ltr' : prev === 'ltr' ? 'webtoon' : 'rtl')}
-                className="h-11 px-3.5 sm:px-4 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-90 text-slate-100 text-xs sm:text-sm font-bold transition-all flex items-center gap-2 shadow-sm"
+                className="h-10 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 text-slate-100 text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 title="Modo de lectura"
               >
                 <ArrowRightLeft className="w-4 h-4 text-amber-400" />
@@ -245,9 +249,10 @@ export default function MangaReaderView({ bookMeta, bookBuffer, onBack }) {
             </div>
           </header>
 
-          {/* 2. ÁREA DE PÁGINAS */}
+          {/* 2. ÁREA DE PÁGINAS CON VOLTEO 3D */}
           <main 
             className={`flex-1 w-full h-full ${mode === 'webtoon' ? 'overflow-y-auto' : 'overflow-hidden book-touch-surface'} flex items-center justify-center relative`}
+            style={{ perspective: '1000px' }}
           >
             {loading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-30 pointer-events-none">
@@ -282,13 +287,13 @@ export default function MangaReaderView({ bookMeta, bookBuffer, onBack }) {
               </div>
             ) : (
               <>
-                {/* Contenedor de imagen con deformación y desplazamiento dinámico con el dedo */}
+                {/* Contenedor de imagen con deformación y desplazamiento dinámico 3D con el dedo */}
                 <div 
                   style={{
                     transform: isDragging 
-                      ? `translateX(${Math.max(-140, Math.min(140, dragOffset))}px) rotateY(${Math.max(-16, Math.min(16, dragOffset * -0.1))}deg)` 
+                      ? `translateX(${dragOffset}px) rotateY(${Math.max(-28, Math.min(28, dragOffset / 25))}deg)` 
                       : 'none',
-                    transition: isDragging ? 'none' : 'transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                    transition: isDragging ? 'none' : 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1)',
                     transformOrigin: dragOffset < 0 ? 'left center' : 'right center',
                   }}
                   className="w-full h-full flex items-center justify-center p-1 pointer-events-none"

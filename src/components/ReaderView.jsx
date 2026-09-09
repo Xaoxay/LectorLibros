@@ -193,8 +193,8 @@ export default function ReaderView({ bookMeta, bookBuffer, onBack, onOpenUpdates
           if (e.touches.length === 1) {
             const diffX = e.touches[0].clientX - touchStartX;
             const diffY = e.touches[0].clientY - touchStartY;
-            // Solo arrastre si es horizontal y evidente
-            if (Math.abs(diffX) > 25 && Math.abs(diffX) > Math.abs(diffY) * 1.6) {
+            // Arrastre horizontal fluido
+            if (Math.abs(diffX) > 12 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
               hasDragged = true;
               setDragOffset(diffX);
               setIsDragging(true);
@@ -219,13 +219,12 @@ export default function ReaderView({ bookMeta, bookBuffer, onBack, onOpenUpdates
               return;
             }
 
-            // Swipe horizontal
-            if ((Math.abs(diffX) > 40 && Math.abs(diffY) < 70 && elapsed < 600) || (hasDragged && Math.abs(diffX) > 40)) {
-              if (diffX < 0) {
-                turnPageNext();
-              } else {
-                turnPagePrev();
-              }
+            // Swipe horizontal con umbral de 80px (estilo Kindle Reanimated)
+            if (diffX < -80 || (diffX < -40 && elapsed < 350)) {
+              turnPageNext();
+              return;
+            } else if (diffX > 80 || (diffX > 40 && elapsed < 350)) {
+              turnPagePrev();
               return;
             }
 
@@ -518,31 +517,35 @@ export default function ReaderView({ bookMeta, bookBuffer, onBack, onOpenUpdates
           <div className="book-spine-crease-inner" />
           <div className="book-page-stack-right" />
 
-          {/* 1. ENCABEZADO INTEGRADO DE PÁGINA DE LIBRO */}
-          <header className="h-15 px-3 sm:px-5 flex items-center justify-between border-b border-black/10 dark:border-white/10 z-20 flex-shrink-0 safe-top">
+          {/* 1. ENCABEZADO INTEGRADO DE PÁGINA DE LIBRO ESTILO KINDLE */}
+          <header className="h-14 sm:h-15 px-3 sm:px-5 flex items-center justify-between border-b border-black/10 dark:border-white/10 z-20 flex-shrink-0 safe-top">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={onBack}
-                className="w-11 h-11 rounded-2xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm cursor-pointer"
+                className="px-3 h-10 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-95 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer font-bold text-xs sm:text-sm"
                 title="Volver a la biblioteca"
                 aria-label="Volver a la biblioteca"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+                <span>Volver</span>
               </button>
 
               <button
                 onClick={() => setShowToc(true)}
-                className="w-11 h-11 rounded-2xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm cursor-pointer"
+                className="w-10 h-10 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 flex items-center justify-center transition-all shadow-sm cursor-pointer"
                 title="Índice de capítulos"
                 aria-label="Índice de capítulos"
               >
-                <List className="w-5 h-5" />
+                <List className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 px-2 sm:px-4 text-center min-w-0">
-              <span className="font-serif italic text-xs sm:text-sm font-semibold tracking-wider opacity-85 truncate block">
+            <div className="flex-1 px-2 text-center min-w-0 flex flex-col items-center justify-center">
+              <span className="font-serif italic text-xs sm:text-sm font-semibold tracking-wider opacity-85 truncate block max-w-[180px] sm:max-w-xs">
                 {currentChapter || bookMeta.title}
+              </span>
+              <span className="text-[10px] sm:text-[11px] font-bold opacity-65 tracking-wide">
+                {bookMeta.totalPages ? `Pág. ~${Math.round((progressPercent / 100) * bookMeta.totalPages)}/${bookMeta.totalPages} (${progressPercent}%)` : `${progressPercent}%`}
               </span>
             </div>
 
@@ -596,7 +599,7 @@ export default function ReaderView({ bookMeta, bookBuffer, onBack, onOpenUpdates
           </header>
 
           {/* 2. ÁREA DE PÁGINA DE LIBRO CON VOLTEO 3D REALISTA Y SELECCIÓN DE TEXTO FLUIDA */}
-          <main className="relative flex-1 w-full h-full overflow-hidden">
+          <main className="relative flex-1 w-full h-full overflow-hidden" style={{ perspective: '1000px' }}>
             {loading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-inherit z-30 pointer-events-none">
                 <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-3" />
@@ -607,16 +610,16 @@ export default function ReaderView({ bookMeta, bookBuffer, onBack, onOpenUpdates
             {/* EFECTO DE HOJA DE PAPEL VOLTEÁNDOSE EN 3D */}
             <PageFlipEffect flipping={flipState} theme={settings.theme} />
 
-            {/* Contenedor del EPUB con deformación dinámica al arrastrar con el dedo */}
+            {/* Contenedor del EPUB con deformación dinámica 3D al arrastrar con el dedo */}
             <div 
               ref={viewerRef} 
               className="epub-container w-full h-full"
               style={{ 
                 opacity: loading ? 0 : 1,
                 transform: isDragging 
-                  ? `translateX(${Math.max(-140, Math.min(140, dragOffset))}px) rotateY(${Math.max(-16, Math.min(16, dragOffset * -0.1))}deg)` 
+                  ? `translateX(${dragOffset}px) rotateY(${Math.max(-28, Math.min(28, dragOffset / 25))}deg)` 
                   : 'none',
-                transition: isDragging ? 'none' : 'transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                transition: isDragging ? 'none' : 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1)',
                 transformOrigin: dragOffset < 0 ? 'left center' : 'right center',
               }}
             />
