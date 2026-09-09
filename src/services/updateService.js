@@ -1,5 +1,6 @@
 import { APP_VERSION, BUILD_DATE, DEFAULT_REPO } from '../config/version';
 import { get, set } from 'idb-keyval';
+import { Browser } from '@capacitor/browser';
 
 const SETTINGS_KEY = 'app_update_settings';
 const LAST_CHECK_KEY = 'app_last_update_check';
@@ -177,7 +178,7 @@ export async function checkForUpdates(force = false) {
 /**
  * Aplica o descarga la actualización
  */
-export function applyUpdate(updateInfo) {
+export async function applyUpdate(updateInfo) {
   if (updateInfo.isPwaUpdate) {
     // Si es PWA, enviar mensaje al service worker y recargar
     if ('serviceWorker' in navigator) {
@@ -193,8 +194,26 @@ export function applyUpdate(updateInfo) {
     return;
   }
 
-  if (updateInfo.downloadUrl) {
-    // Abrir enlace para descargar APK o abrir repositorio
-    window.open(updateInfo.downloadUrl, '_blank');
+  const url = updateInfo.downloadUrl || updateInfo.releasePageUrl;
+  if (url) {
+    try {
+      // Abre en el navegador externo predeterminado (Chrome / Samsung Internet)
+      // para que el Download Manager de Android gestione la descarga sin bucles
+      await Browser.open({ url });
+    } catch {
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          if (document.body.contains(a)) document.body.removeChild(a);
+        }, 500);
+      } catch {
+        window.open(url, '_blank');
+      }
+    }
   }
 }

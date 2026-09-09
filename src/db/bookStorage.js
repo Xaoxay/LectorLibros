@@ -47,6 +47,18 @@ export async function updateBookProgress(bookId, cfi, percentage, chapterTitle =
   }
 }
 
+export async function toggleFavorite(bookId) {
+  const books = await getBooks();
+  const index = books.findIndex(b => b.id === bookId);
+  if (index >= 0) {
+    books[index].isFavorite = !books[index].isFavorite;
+    books[index].updatedAt = Date.now();
+    await set(METADATA_KEY, books);
+    return books;
+  }
+  return books;
+}
+
 // --- GESTIÓN DE ARCHIVOS BINARIOS DE LIBROS ---
 
 export async function saveBookFile(bookId, arrayBuffer) {

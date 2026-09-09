@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  BookOpen, Compass, Layers, FileText, CheckCircle2, 
+  BookOpen, Compass, Layers, FileText, CheckCircle2, Heart,
   Upload, ArrowUpCircle, X, Sparkles, Smartphone, ChevronRight
 } from 'lucide-react';
 import { APP_VERSION } from '../config/version';
@@ -11,11 +11,12 @@ export default function SidebarDrawer({
   onClose,
   activeFilter,
   onSelectFilter,
-  totalBooks,
-  epubCount,
-  pdfCount,
-  mangaCount,
-  completedCount,
+  totalBooks = 0,
+  favoritesCount = 0,
+  completedCount = 0,
+  epubCount = 0,
+  pdfCount = 0,
+  mangaCount = 0,
   onOpenCatalog,
   onImportClick,
   onOpenUpdates,
@@ -23,15 +24,37 @@ export default function SidebarDrawer({
   installPrompt,
   onOpenInstall,
 }) {
-  const navItems = [
+  const librarySections = [
     {
       id: 'all',
-      label: 'Todos los Libros',
+      label: 'Mi Biblioteca',
       icon: BookOpen,
       count: totalBooks,
       color: 'text-amber-400',
       activeBg: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+      badgeClass: 'bg-amber-400 text-slate-950 font-extrabold',
     },
+    {
+      id: 'favorites',
+      label: 'Favoritos',
+      icon: Heart,
+      count: favoritesCount,
+      color: 'text-rose-400',
+      activeBg: 'bg-rose-500/15 border-rose-500/30 text-rose-300',
+      badgeClass: 'bg-rose-500 text-white font-extrabold',
+    },
+    {
+      id: 'completed',
+      label: 'Libros Leídos',
+      icon: CheckCircle2,
+      count: completedCount,
+      color: 'text-emerald-400',
+      activeBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+      badgeClass: 'bg-emerald-500 text-white font-extrabold',
+    },
+  ];
+
+  const formatSections = [
     {
       id: 'epub',
       label: 'Novelas EPUB',
@@ -39,6 +62,7 @@ export default function SidebarDrawer({
       count: epubCount,
       color: 'text-amber-400',
       activeBg: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+      badgeClass: 'bg-amber-400 text-slate-950 font-extrabold',
     },
     {
       id: 'pdf',
@@ -47,6 +71,7 @@ export default function SidebarDrawer({
       count: pdfCount,
       color: 'text-rose-400',
       activeBg: 'bg-rose-500/15 border-rose-500/30 text-rose-300',
+      badgeClass: 'bg-rose-400 text-slate-950 font-extrabold',
     },
     {
       id: 'cbz',
@@ -55,16 +80,45 @@ export default function SidebarDrawer({
       count: mangaCount,
       color: 'text-purple-400',
       activeBg: 'bg-purple-500/15 border-purple-500/30 text-purple-300',
-    },
-    {
-      id: 'completed',
-      label: 'Completados',
-      icon: CheckCircle2,
-      count: completedCount,
-      color: 'text-emerald-400',
-      activeBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+      badgeClass: 'bg-purple-400 text-slate-950 font-extrabold',
     },
   ];
+
+  const renderNavGroup = (items) => (
+    <div className="space-y-1">
+      {items.map(item => {
+        const Icon = item.icon;
+        const isActive = activeFilter === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => {
+              onSelectFilter(item.id);
+              onClose();
+            }}
+            className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+              isActive 
+                ? `${item.activeBg} font-bold border shadow-sm` 
+                : 'text-slate-300 hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Icon className={`w-4 h-4 ${item.color} ${item.id === 'favorites' && isActive ? 'fill-rose-400' : ''}`} />
+              <span>{item.label}</span>
+            </div>
+
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition-colors ${
+              isActive 
+                ? item.badgeClass 
+                : 'bg-slate-900 text-slate-400 border border-white/5'
+            }`}>
+              {item.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <AnimatePresence>
@@ -140,45 +194,20 @@ export default function SidebarDrawer({
                 </button>
               </div>
 
-              {/* Filtros de la Biblioteca */}
+              {/* Sección 1: Explorar / Mi Biblioteca */}
               <div>
                 <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2 mb-2 block">
-                  Biblioteca
+                  Mi Biblioteca
                 </span>
+                {renderNavGroup(librarySections)}
+              </div>
 
-                <div className="space-y-1">
-                  {navItems.map(item => {
-                    const Icon = item.icon;
-                    const isActive = activeFilter === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          onSelectFilter(item.id);
-                          onClose();
-                        }}
-                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
-                          isActive 
-                            ? `${item.activeBg} font-bold border shadow-sm` 
-                            : 'text-slate-300 hover:bg-white/5 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Icon className={`w-4 h-4 ${item.color}`} />
-                          <span>{item.label}</span>
-                        </div>
-
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          isActive 
-                            ? 'bg-amber-400 text-slate-950 font-extrabold' 
-                            : 'bg-slate-900 text-slate-400 border border-white/5'
-                        }`}>
-                          {item.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Sección 2: Formatos */}
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase px-2 mb-2 block">
+                  Formatos
+                </span>
+                {renderNavGroup(formatSections)}
               </div>
 
               {/* Botón Importar Libro */}

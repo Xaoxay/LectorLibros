@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, MoreVertical, Trash2, CheckCircle2, Flame } from 'lucide-react';
+import { BookOpen, MoreVertical, Trash2, CheckCircle2, Flame, Heart } from 'lucide-react';
 
 const COVER_GRADIENTS = [
   'from-indigo-950 via-slate-900 to-amber-950',
@@ -10,7 +10,7 @@ const COVER_GRADIENTS = [
   'from-amber-950 via-slate-900 to-stone-900',
 ];
 
-export default function Book3DCard({ book, onOpen, onDelete }) {
+export default function Book3DCard({ book, onOpen, onDelete, onToggleFavorite }) {
   const [showMenu, setShowMenu] = useState(false);
 
   const gradientIndex = Math.abs(
@@ -92,18 +92,34 @@ export default function Book3DCard({ book, onOpen, onDelete }) {
             ) : null}
           </div>
 
-          {/* Botón de opciones */}
-          <div className="absolute top-2 right-2 z-20">
+          {/* Botones superiores derechos: Favorito directo y Menú de opciones */}
+          <div className="absolute top-2 right-2 z-20 flex items-center gap-1.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite?.(book.id);
+              }}
+              className={`w-9 h-9 rounded-full backdrop-blur-md border flex items-center justify-center transition-all shadow-lg active:scale-90 ${
+                book.isFavorite 
+                  ? 'bg-rose-500/90 border-rose-400 text-white shadow-rose-500/30' 
+                  : 'bg-slate-950/80 border-white/15 text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+              title={book.isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+              aria-label="Favorito"
+            >
+              <Heart className={`w-4 h-4 ${book.isFavorite ? 'fill-white text-white' : ''}`} />
+            </button>
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowMenu(prev => !prev);
               }}
-              className="w-10 h-10 rounded-full bg-slate-950/85 hover:bg-slate-900 active:scale-90 text-slate-200 hover:text-white backdrop-blur-md border border-white/20 flex items-center justify-center transition-all shadow-lg"
+              className="w-9 h-9 rounded-full bg-slate-950/85 hover:bg-slate-900 active:scale-90 text-slate-200 hover:text-white backdrop-blur-md border border-white/20 flex items-center justify-center transition-all shadow-lg"
               title="Opciones"
               aria-label="Opciones del libro"
             >
-              <MoreVertical className="w-5 h-5" />
+              <MoreVertical className="w-4 h-4" />
             </button>
 
             <AnimatePresence>
@@ -112,18 +128,29 @@ export default function Book3DCard({ book, onOpen, onDelete }) {
                   initial={{ opacity: 0, scale: 0.9, y: -5 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9, y: -5 }}
-                  className="absolute right-0 top-11 w-40 bg-slate-900/98 border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-30 backdrop-blur-xl"
+                  className="absolute right-0 top-11 w-44 bg-slate-900/98 border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-30 backdrop-blur-xl"
                   onClick={e => e.stopPropagation()}
                 >
                   <button
                     onClick={() => {
                       setShowMenu(false);
+                      onToggleFavorite?.(book.id);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-slate-200 hover:bg-white/10 transition-colors font-medium cursor-pointer"
+                  >
+                    <Heart className={`w-4 h-4 ${book.isFavorite ? 'fill-rose-400 text-rose-400' : 'text-slate-400'}`} />
+                    <span>{book.isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
                       onDelete(book.id);
                     }}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-rose-400 hover:bg-rose-500/15 transition-colors font-bold min-h-[44px]"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-rose-400 hover:bg-rose-500/15 transition-colors font-bold border-t border-white/5 cursor-pointer"
                   >
-                    <Trash2 className="w-5 h-5" />
-                    <span>Eliminar</span>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Eliminar libro</span>
                   </button>
                 </motion.div>
               )}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Plus, Upload, Search, Smartphone, 
   Sparkles, Compass, Download, X, Layers, Loader2, AlertCircle,
-  ArrowUpCircle, Check, Menu, Filter, ArrowRight
+  ArrowUpCircle, Check, Menu, Filter, ArrowRight, Heart, CheckCircle2
 } from 'lucide-react';
 import Book3DCard from './Book3DCard';
 import ContinueReadingHero from './ContinueReadingHero';
@@ -11,7 +11,7 @@ import AndroidInstallModal from './AndroidInstallModal';
 import CatalogModal from './CatalogModal';
 import SidebarDrawer from './SidebarDrawer';
 import { extractUniversalMetadata } from '../utils/universalParser';
-import { saveBookMetadata, saveBookFile, deleteBook } from '../db/bookStorage';
+import { saveBookMetadata, saveBookFile, deleteBook, toggleFavorite } from '../db/bookStorage';
 import { createSampleEpub } from '../utils/sampleBook';
 import { createSampleManga } from '../utils/sampleManga';
 import { downloadBookBuffer } from '../services/onlineCatalog';
@@ -147,6 +147,11 @@ export default function LibraryView({
     }
   };
 
+  const handleToggleFavorite = async (bookId) => {
+    await toggleFavorite(bookId);
+    await onRefreshBooks();
+  };
+
   // Descarga e importación en 1-clic de clásicos recomendados
   const handleQuickAddClassic = async (item) => {
     try {
@@ -228,6 +233,7 @@ export default function LibraryView({
   const pdfCount = books.filter(b => b.format === 'pdf').length;
   const mangaCount = books.filter(b => b.format === 'cbz').length;
   const completedCount = books.filter(b => b.progress >= 99).length;
+  const favoritesCount = books.filter(b => !!b.isFavorite).length;
 
   const filteredBooks = books.filter(book => {
     const matchesSearch = 
@@ -235,10 +241,11 @@ export default function LibraryView({
       book.author.toLowerCase().includes(search.toLowerCase());
 
     if (!matchesSearch) return false;
+    if (activeFilter === 'favorites') return !!book.isFavorite;
+    if (activeFilter === 'completed') return book.progress >= 99;
     if (activeFilter === 'epub') return !book.format || book.format === 'epub';
     if (activeFilter === 'pdf') return book.format === 'pdf';
     if (activeFilter === 'cbz') return book.format === 'cbz';
-    if (activeFilter === 'completed') return book.progress >= 99;
     return true;
   });
 
@@ -246,10 +253,11 @@ export default function LibraryView({
 
   const filterTitles = {
     all: 'Mi Biblioteca',
+    favorites: 'Favoritos',
+    completed: 'Libros Leídos',
     epub: 'Novelas EPUB',
     pdf: 'Documentos PDF',
     cbz: 'Manga / Cómics',
-    completed: 'Libros Leídos',
   };
 
   return (
@@ -410,15 +418,49 @@ export default function LibraryView({
 
             {/* GRILLA DE LIBROS (Optimizada para espacio y densidad en pantalla) */}
             {filteredBooks.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
-                <p className="text-sm font-semibold">No se encontraron libros con ese filtro o búsqueda.</p>
-                <button
-                  onClick={() => { setSearch(''); setActiveFilter('all'); }}
-                  className="mt-2 text-xs text-amber-400 hover:underline font-bold"
-                >
-                  Restablecer filtros
-                </button>
-              </div>
+              activeFilter === 'favorites' ? (
+                <div className="text-center py-16 px-4 flex flex-col items-center justify-center">
+                  <div className="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/25 flex items-center justify-center text-rose-400 mb-3 shadow-lg shadow-rose-500/10">
+                    <Heart className="w-7 h-7 fill-rose-500/30" />
+                  </div>
+                  <h4 className="text-sm sm:text-base font-bold text-white mb-1">Aún no tienes libros en Favoritos</h4>
+                  <p className="text-xs text-slate-400 max-w-xs text-center mb-4 leading-relaxed">
+                    Toca el ícono de corazón ❤️ en cualquier libro de tu biblioteca para tenerlo a mano aquí.
+                  </p>
+                  <button
+                    onClick={() => setActiveFilter('all')}
+                    className="h-9 px-4 rounded-xl bg-slate-900 border border-white/10 hover:bg-slate-800 active:scale-95 text-xs font-bold text-slate-200 transition-all cursor-pointer"
+                  >
+                    Ver toda mi biblioteca
+                  </button>
+                </div>
+              ) : activeFilter === 'completed' ? (
+                <div className="text-center py-16 px-4 flex flex-col items-center justify-center">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center text-emerald-400 mb-3 shadow-lg shadow-emerald-500/10">
+                    <CheckCircle2 className="w-7 h-7" />
+                  </div>
+                  <h4 className="text-sm sm:text-base font-bold text-white mb-1">Aún no has terminado ningún libro</h4>
+                  <p className="text-xs text-slate-400 max-w-xs text-center mb-4 leading-relaxed">
+                    Cuando leas un libro hasta el 100%, se guardará automáticamente en esta sección.
+                  </p>
+                  <button
+                    onClick={() => setActiveFilter('all')}
+                    className="h-9 px-4 rounded-xl bg-slate-900 border border-white/10 hover:bg-slate-800 active:scale-95 text-xs font-bold text-slate-200 transition-all cursor-pointer"
+                  >
+                    Ver toda mi biblioteca
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-500">
+                  <p className="text-sm font-semibold">No se encontraron libros con ese filtro o búsqueda.</p>
+                  <button
+                    onClick={() => { setSearch(''); setActiveFilter('all'); }}
+                    className="mt-2 text-xs text-amber-400 hover:underline font-bold cursor-pointer"
+                  >
+                    Restablecer filtros
+                  </button>
+                </div>
+              )
             ) : (
               <motion.div 
                 layout
@@ -431,6 +473,7 @@ export default function LibraryView({
                       book={book}
                       onOpen={onOpenBook}
                       onDelete={handleDeleteBook}
+                      onToggleFavorite={handleToggleFavorite}
                     />
                   ))}
                 </AnimatePresence>
@@ -661,10 +704,11 @@ export default function LibraryView({
         activeFilter={activeFilter}
         onSelectFilter={setActiveFilter}
         totalBooks={books.length}
+        favoritesCount={favoritesCount}
+        completedCount={completedCount}
         epubCount={epubCount}
         pdfCount={pdfCount}
         mangaCount={mangaCount}
-        completedCount={completedCount}
         onOpenCatalog={() => setShowCatalog(true)}
         onImportClick={() => fileInputRef.current?.click()}
         onOpenUpdates={onOpenUpdates}

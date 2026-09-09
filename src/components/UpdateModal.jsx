@@ -194,7 +194,7 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
                       </pre>
                     </div>
 
-                    <div className="pt-2">
+                    <div className="pt-2 space-y-2">
                       <button
                         onClick={handleApply}
                         className="w-full h-12 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-yellow-400 active:scale-98 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
@@ -203,9 +203,15 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
                         <span>
                           {updateInfo.isPwaUpdate 
                             ? 'Actualizar App Ahora (Recargar)' 
-                            : 'Descargar e Instalar Actualización (.apk)'}
+                            : 'Descargar e Instalar (.apk)'}
                         </span>
                       </button>
+
+                      {updateInfo.downloadUrl && (
+                        <p className="text-[11px] text-slate-400 text-center leading-normal bg-white/5 p-2.5 rounded-xl border border-white/5">
+                          💡 <strong>Consejo:</strong> Si tu celular te muestra una advertencia de seguridad, selecciona <em>"Descargar de todos modos"</em> para completar la instalación.
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : checkedOnce ? (
