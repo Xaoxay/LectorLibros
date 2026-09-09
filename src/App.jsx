@@ -1,55 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import KindleWelcomeScreen from './components/KindleWelcomeScreen';
-import KindleAuthScreen from './components/KindleAuthScreen';
-import KindleLibraryScreen from './components/KindleLibraryScreen';
-import KindleUploadScreen from './components/KindleUploadScreen';
-import KindleOnlineSearchScreen from './components/KindleOnlineSearchScreen';
-import KindleProfileScreen from './components/KindleProfileScreen';
-import KindleBookDetailModal from './components/KindleBookDetailModal';
-import KindleReaderScreen from './components/KindleReaderScreen';
-import KindleBottomNav from './components/KindleBottomNav';
+// App.jsx - Kindle Clone (Arquitectura y diseño de kindle-clone/App.js)
+import React, { useState, useEffect, useRef } from 'react';
+import KindleCloneAuth, { COLORS } from './components/KindleCloneAuth';
+import KindleCloneLibrary from './components/KindleCloneLibrary';
+import KindleCloneUpload from './components/KindleCloneUpload';
+import KindleCloneSearch from './components/KindleCloneSearch';
+import KindleCloneReader from './components/KindleCloneReader';
+import KindleCloneProfile from './components/KindleCloneProfile';
 import UpdateModal from './components/UpdateModal';
-import { getBooks, getBookFile, toggleFavorite, deleteBook } from './db/bookStorage';
+import { getBooks, getBookFile, deleteBook } from './db/bookStorage';
 import { checkForUpdates, getUpdateSettings } from './services/updateService';
-import { subscribeAuth, logoutUser } from './services/firebase';
+import { subscribeAuth } from './services/firebase';
 import { Loader2 } from 'lucide-react';
-import KindleLogo from './components/KindleLogo';
 
 export default function App() {
-  const [hasSeenWelcome, setHasSeenWelcome] = useState(() => {
-    return localStorage.getItem('kindle_has_seen_welcome') === 'true';
-  });
-
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('lector_current_user');
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Pantallas: 'welcome' | 'auth' | 'main' | 'reader'
+  // Pantallas del Stack Navigator: 'Auth' | 'Library' | 'Upload' | 'Search' | 'Reader' | 'Profile'
   const [currentScreen, setCurrentScreen] = useState(() => {
-    const savedUser = localStorage.getItem('lector_current_user');
-    const seenWelcome = localStorage.getItem('kindle_has_seen_welcome') === 'true';
-    if (savedUser) return 'main';
-    if (!seenWelcome) return 'welcome';
-    return 'auth';
+    const saved = localStorage.getItem('lector_current_user');
+    return saved ? 'Library' : 'Auth';
   });
 
-  // Pestaña activa en la pantalla 'main': 'inicio' | 'biblioteca' | 'subir' | 'perfil'
-  const [activeTab, setActiveTab] = useState('biblioteca');
+  const [history, setHistory] = useState(['Library']);
+  const [routeParams, setRouteParams] = useState({});
 
   const [books, setBooks] = useState([]);
-  const [selectedBookDetail, setSelectedBookDetail] = useState(null); // Screen 5: Detalle del libro
-  const [activeBook, setActiveBook] = useState(null);
-  const [activeBookBuffer, setActiveBookBuffer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingBook, setLoadingBook] = useState(false);
+  const [activeBookBuffer, setActiveBookBuffer] = useState(null);
 
-  // Estado de Actualizaciones
+  // Modal de actualizaciones
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(null);
 
-  // Suscripción a Firebase Auth
+  // Escuchar estado de autenticación en Firebase
   useEffect(() => {
     const unsubscribe = subscribeAuth((user) => {
       setCurrentUser(user);
@@ -57,7 +44,7 @@ export default function App() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Comprobar actualizaciones automáticamente al inicio
+  // Comprobación silenciosa de actualizaciones
   useEffect(() => {
     async function checkAppUpdates() {
       try {
@@ -75,7 +62,7 @@ export default function App() {
     checkAppUpdates();
   }, []);
 
-  // Cargar biblioteca desde IndexedDB
+  // Cargar libros de la biblioteca
   const loadBooks = async () => {
     try {
       const stored = await getBooks();
@@ -91,205 +78,131 @@ export default function App() {
     loadBooks();
   }, []);
 
-  // Abrir lector desde el detalle o lista
-  const handleLaunchReader = async (book) => {
-    setSelectedBookDetail(null);
-    setLoadingBook(true);
-    try {
-      const buffer = await getBookFile(book.id);
-      setActiveBook(book);
-      setActiveBookBuffer(buffer || null);
-      setCurrentScreen('reader');
-    } catch (err) {
-      console.error('Error al abrir el libro:', err);
-      alert('Ocurrió un error al cargar el libro.');
-    } finally {
-      setLoadingBook(false);
-    }
+  // Objeto de navegación compatible con React Navigation
+  const navigation = {
+    navigate: async (screenName, params = {}) => {
+      if (screenName === 'Reader' && params.book) {
+        setLoadingBook(true);
+        try {
+          const buffer = await getBookFile(params.book.id);
+          setActiveBookBuffer(buffer || null);
+        } catch (e) {
+          console.warn('Could not read local book buffer:', e);
+          setActiveBookBuffer(null);
+        } finally {
+          setLoadingBook(false);
+        }
+      }
+
+      setRouteParams(params);
+      setHistory((prev) => [...prev, screenName]);
+      setCurrentScreen(screenName);
+    },
+
+    replace: (screenName, params = {}) => {
+      if (params.user) {
+        setCurrentUser(params.user);
+      }
+      setRouteParams(params);
+      setHistory([screenName]);
+      setCurrentScreen(screenName);
+    },
+
+    goBack: async () => {
+      if (currentScreen === 'Reader') {
+        await loadBooks();
+      }
+      setHistory((prev) => {
+        if (prev.length > 1) {
+          const newHist = prev.slice(0, -1);
+          setCurrentScreen(newHist[newHist.length - 1]);
+          return newHist;
+        } else {
+          setCurrentScreen('Library');
+          return ['Library'];
+        }
+      });
+    },
   };
 
-  // Volver desde el lector
-  const handleBackToMain = async () => {
-    setActiveBook(null);
-    setActiveBookBuffer(null);
-    setCurrentScreen('main');
-    await loadBooks();
-  };
-
-  // Cambiar favorito
-  const handleToggleFavorite = async (bookId) => {
-    await toggleFavorite(bookId);
-    await loadBooks();
-    if (selectedBookDetail && selectedBookDetail.id === bookId) {
-      setSelectedBookDetail(prev => prev ? { ...prev, favorite: !prev.favorite } : null);
-    }
-  };
-
-  // Eliminar libro
   const handleDeleteBook = async (bookId) => {
-    await deleteBook(bookId);
-    await loadBooks();
-  };
-
-  // Cerrar sesión
-  const handleLogout = async () => {
-    await logoutUser();
-    setCurrentUser(null);
-    setCurrentScreen('welcome');
-  };
-
-  // Éxito en bienvenida
-  const handleWelcomeStart = () => {
-    localStorage.setItem('kindle_has_seen_welcome', 'true');
-    setHasSeenWelcome(true);
-    // Modo offline inmediato
-    const guestUser = {
-      uid: 'guest_local',
-      email: 'Invitado (Modo Offline)',
-      isAnonymous: true,
-    };
-    localStorage.setItem('lector_current_user', JSON.stringify(guestUser));
-    setCurrentUser(guestUser);
-    setCurrentScreen('main');
-    setActiveTab('biblioteca');
-  };
-
-  const handleWelcomeLogin = () => {
-    localStorage.setItem('kindle_has_seen_welcome', 'true');
-    setHasSeenWelcome(true);
-    setCurrentScreen('auth');
-  };
-
-  // Éxito en login
-  const handleLoginSuccess = (user) => {
-    setCurrentUser(user);
-    setCurrentScreen('main');
-    setActiveTab('biblioteca');
+    if (window.confirm('¿Deseas eliminar este libro de tu biblioteca?')) {
+      await deleteBook(bookId);
+      await loadBooks();
+    }
   };
 
   if (loading) {
     return (
-      <div className="h-full w-full bg-[#0b0f19] flex flex-col items-center justify-center text-white select-none">
-        <KindleLogo size={80} className="mb-4" />
-        <Loader2 className="w-8 h-8 text-[#007aff] animate-spin mb-2" />
-        <p className="text-sm font-bold tracking-tight text-slate-300">Kindle Clone</p>
+      <div
+        className="h-full w-full flex flex-col items-center justify-center select-none"
+        style={{ backgroundColor: COLORS.bg, color: COLORS.text }}
+      >
+        <Loader2 className="w-10 h-10 animate-spin mb-3" style={{ color: COLORS.accent }} />
+        <p className="text-xl font-bold" style={{ color: COLORS.accent }}>Kindle Clone</p>
       </div>
     );
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#0b0f19] text-white">
-      {/* 1. Overlay de Carga de Libro */}
-      <AnimatePresence>
-        {loadingBook && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center text-white"
-          >
-            <Loader2 className="w-10 h-10 text-[#007aff] animate-spin mb-3" />
-            <p className="text-sm font-bold tracking-wide">Abriendo lectura...</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 2. Pantalla de Bienvenida (Screen 1) */}
-      {currentScreen === 'welcome' && (
-        <KindleWelcomeScreen
-          onStart={handleWelcomeStart}
-          onLogin={handleWelcomeLogin}
-        />
-      )}
-
-      {/* 3. Pantalla de Login / Registro (Screen 2) */}
-      {currentScreen === 'auth' && (
-        <KindleAuthScreen
-          onLoginSuccess={handleLoginSuccess}
-          onBack={() => setCurrentScreen('welcome')}
-        />
-      )}
-
-      {/* 4. Pantalla Principal con Barra de Navegación Inferior (Screens 3, 4, 8, 9) */}
-      {currentScreen === 'main' && (
-        <div className="h-full w-full flex flex-col overflow-hidden">
-          <div className="flex-1 w-full overflow-y-auto overscroll-contain">
-            {/* Tab Inicio: Buscar en línea dentro de la app (Screen 8) */}
-            {activeTab === 'inicio' && (
-              <KindleOnlineSearchScreen
-                onBookDownloaded={async (bookData) => {
-                  await loadBooks();
-                  setSelectedBookDetail(bookData);
-                }}
-              />
-            )}
-
-            {/* Tab Biblioteca: Mi Biblioteca (Screen 3) */}
-            {activeTab === 'biblioteca' && (
-              <KindleLibraryScreen
-                books={books}
-                onSelectBook={(book) => setSelectedBookDetail(book)}
-                onRefreshBooks={loadBooks}
-                currentUser={currentUser}
-                onGoToProfile={() => setActiveTab('perfil')}
-                onGoToUpload={() => setActiveTab('subir')}
-              />
-            )}
-
-            {/* Tab Subir: Subida de libros PDF / EPUB (Screen 4) */}
-            {activeTab === 'subir' && (
-              <KindleUploadScreen
-                currentUser={currentUser}
-                onBookUploaded={async () => {
-                  await loadBooks();
-                  setActiveTab('biblioteca');
-                }}
-              />
-            )}
-
-            {/* Tab Perfil: Mi Perfil y Configuración (Screen 9) */}
-            {activeTab === 'perfil' && (
-              <KindleProfileScreen
-                currentUser={currentUser}
-                booksCount={books.length}
-                onLogout={handleLogout}
-                onOpenSettings={() => setShowUpdateModal(true)}
-                onOpenUpdates={() => setShowUpdateModal(true)}
-                hasUpdate={!!updateAvailable}
-                onGoToLibrary={() => setActiveTab('biblioteca')}
-                onFilterFavorites={() => setActiveTab('biblioteca')}
-              />
-            )}
-          </div>
-
-          {/* Barra de Navegación Inferior */}
-          <KindleBottomNav
-            activeTab={activeTab}
-            onTabChange={(tabId) => setActiveTab(tabId)}
-          />
+    <div
+      className="relative h-full w-full overflow-hidden"
+      style={{ backgroundColor: COLORS.bg, color: COLORS.text }}
+    >
+      {/* Loading overlay */}
+      {loadingBook && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center text-white">
+          <Loader2 className="w-10 h-10 animate-spin mb-3" style={{ color: COLORS.accent }} />
+          <p className="text-sm font-bold">Abriendo libro...</p>
         </div>
       )}
 
-      {/* 5. Modal de Detalle del Libro (Screen 5) */}
-      {selectedBookDetail && (
-        <KindleBookDetailModal
-          book={selectedBookDetail}
-          onClose={() => setSelectedBookDetail(null)}
-          onRead={handleLaunchReader}
-          onDelete={handleDeleteBook}
-          onToggleFavorite={handleToggleFavorite}
-        />
-      )}
+      {/* Stack Navigator Screen Rendering */}
+      <div className="h-full w-full overflow-y-auto overscroll-contain">
+        {currentScreen === 'Auth' && (
+          <KindleCloneAuth navigation={navigation} />
+        )}
 
-      {/* 6. Pantalla de Lectura Completa (Screens 6, 7, 10: Tono Papel & Modo Oscuro + 3D) */}
-      {currentScreen === 'reader' && activeBook && (
-        <KindleReaderScreen
-          book={activeBook}
-          bookBuffer={activeBookBuffer}
-          onBack={handleBackToMain}
-          onOpenUpdates={() => setShowUpdateModal(true)}
-        />
-      )}
+        {currentScreen === 'Library' && (
+          <KindleCloneLibrary
+            books={books}
+            loading={loading}
+            navigation={navigation}
+            onRefreshBooks={loadBooks}
+            onDeleteBook={handleDeleteBook}
+          />
+        )}
+
+        {currentScreen === 'Upload' && (
+          <KindleCloneUpload
+            navigation={navigation}
+            currentUser={currentUser}
+            onBookUploaded={loadBooks}
+          />
+        )}
+
+        {currentScreen === 'Search' && (
+          <KindleCloneSearch navigation={navigation} />
+        )}
+
+        {currentScreen === 'Reader' && routeParams.book && (
+          <KindleCloneReader
+            book={routeParams.book}
+            bookBuffer={activeBookBuffer}
+            navigation={navigation}
+            onOpenUpdates={() => setShowUpdateModal(true)}
+          />
+        )}
+
+        {currentScreen === 'Profile' && (
+          <KindleCloneProfile
+            navigation={navigation}
+            currentUser={currentUser}
+            onOpenUpdates={() => setShowUpdateModal(true)}
+            hasUpdate={!!updateAvailable}
+          />
+        )}
+      </div>
 
       {/* Modal de Actualizaciones */}
       <UpdateModal
