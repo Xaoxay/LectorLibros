@@ -43,11 +43,11 @@ jobs:
       - name: Permisos de ejecucion para Gradle
         run: chmod +x ./android/gradlew
 
-      - name: Compilar APK Android
+      - name: Compilar APK Android (Release)
         working-directory: ./android
         run: |
           set +e
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee gradle_build.log
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee gradle_build.log
           GRADLE_EXIT=${PIPESTATUS[0]}
           if [ $GRADLE_EXIT -ne 0 ]; then
             echo "### ❌ Error en compilación de Gradle (Código: $GRADLE_EXIT)" >> $GITHUB_STEP_SUMMARY
@@ -62,12 +62,12 @@ jobs:
           mkdir -p apk_output
           find android/app/build/outputs/apk/ -name "*.apk" -type f -exec cp {} apk_output/ \;
           
-          if [ -f apk_output/app-debug.apk ]; then
-            cp apk_output/app-debug.apk apk_output/LectorLibros-v2.0.apk
-            cp apk_output/app-debug.apk apk_output/LectorLibros.apk
-          elif [ -f apk_output/app-release.apk ]; then
+          if [ -f apk_output/app-release.apk ]; then
             cp apk_output/app-release.apk apk_output/LectorLibros-v2.0.apk
             cp apk_output/app-release.apk apk_output/LectorLibros.apk
+          elif [ -f apk_output/app-debug.apk ]; then
+            cp apk_output/app-debug.apk apk_output/LectorLibros-v2.0.apk
+            cp apk_output/app-debug.apk apk_output/LectorLibros.apk
           fi
           
           echo "=== Archivos APK generados ==="

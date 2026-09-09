@@ -43,6 +43,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 /* =========================
    CONFIG / THEME
@@ -55,10 +56,38 @@ const firebaseConfig = {
   appId: "TU_APP_ID",
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+let app, auth, db, storage;
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+} catch (err) {
+  console.warn("Firebase init warning:", err.message);
+}
+
+const LOCAL_STORAGE_KEY = "@lector_libros_list";
+
+async function getStoredBooks() {
+  try {
+    const raw = await AsyncStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveStoredBook(book) {
+  try {
+    const current = await getStoredBooks();
+    const updated = [book, ...current.filter((b) => b.id !== book.id)];
+    await AsyncStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+    return updated;
+  } catch (e) {
+    return [];
+  }
+}
+
 
 const COLORS = {
   bg: "#0f1724",
@@ -112,18 +141,28 @@ function AuthScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const login = async () => {
+    if (!auth || firebaseConfig.apiKey === "TU_API_KEY") {
+      Alert.alert("Aviso", "Firebase no configurado. Entrando en modo local.");
+      navigation.replace("Library");
+      return;
+    }
     try {
       setLoading(true);
       await signInWithEmailAndPassword(auth, email.trim(), pass);
       navigation.replace("Library");
     } catch (e) {
-      Alert.alert("Error", e.message || "Error al iniciar sesiÃ³n");
+      Alert.alert("Error", e.message || "Error al iniciar sesión");
     } finally {
       setLoading(false);
     }
   };
 
   const register = async () => {
+    if (!auth || firebaseConfig.apiKey === "TU_API_KEY") {
+      Alert.alert("Aviso", "Firebase no configurado. Entrando en modo local.");
+      navigation.replace("Library");
+      return;
+    }
     try {
       setLoading(true);
       await createUserWithEmailAndPassword(auth, email.trim(), pass);
@@ -136,10 +175,10 @@ function AuthScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { justifyContent: "center" }]}>
+    <SafeAreaView style={[styles.screen, { justifyContent: "center", padding: 24 }]}>
       <StatusBar barStyle="light-content" />
-      <Text style={styles.logo}>Kindle Clone</Text>
-      <Text style={styles.subtitle}>Tus libros, siempre contigo.</Text>
+      <Text style={styles.logo}>Lector Libros</Text>
+      <Text style={styles.subtitle}>Tus libros en PDF y EPUB, siempre contigo.</Text>
 
       <TextInput
         placeholder="Correo"
@@ -152,7 +191,7 @@ function AuthScreen({ navigation }) {
       />
 
       <TextInput
-        placeholder="ContraseÃ±a"
+        placeholder="Contraseña"
         placeholderTextColor="#7f8b99"
         style={styles.input}
         onChangeText={setPass}
@@ -161,11 +200,18 @@ function AuthScreen({ navigation }) {
       />
 
       <TouchableOpacity onPress={login} style={styles.primaryButton}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Iniciar sesiÃ³n</Text>}
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Iniciar sesión</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={register} style={{ marginTop: 12 }}>
         <Text style={{ color: COLORS.muted, textAlign: "center" }}>Crear cuenta</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => navigation.replace("Library")}
+        style={{ marginTop: 22, backgroundColor: "#1c2638", padding: 14, borderRadius: 10, alignItems: "center", borderWidth: 1, borderColor: "#2a3b54" }}
+      >
+        <Text style={{ color: "#60a5fa", fontWeight: "700" }}>📖 Entrar como Invitado / Modo Local</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -178,32 +224,55 @@ async function uploadBookFlow(navigation) {
   try {
     const res = await DocumentPicker.getDocumentAsync({
       type: ["application/pdf", "application/epub+zip"],
+      copyToCacheDirectory: true,
     });
     if (res.type === "cancel") return;
 
     const { name, uri } = res;
-    const blob = await fetch(uri).then((r) => r.blob());
-    const userId = auth.currentUser.uid;
-    const fileRef = ref(storage, `books/${userId}/${Date.now()}_${name}`);
-    await uploadBytes(fileRef, blob);
-    const url = await getDownloadURL(fileRef);
+    const isPdf = name.toLowerCase().endsWith(".pdf");
 
-    // Save metadata
-    await addDoc(collection(db, "books"), {
-      userId,
+    const newBook = {
+      id: "local_" + Date.now(),
       name,
-      url,
-      type: name.toLowerCase().endsWith(".pdf") ? "pdf" : "epub",
+      url: uri,
+      type: isPdf ? "pdf" : "epub",
       cover: null,
-      pages: [], // optional: can be filled by a backend function
-      createdAt: serverTimestamp(),
+      pages: [],
+      createdAt: new Date().toISOString(),
       progress: 0,
-    });
+    };
 
-    Alert.alert("Subido", "Libro subido correctamente");
-    navigation.goBack();
+    // Save to local device storage
+    await saveStoredBook(newBook);
+
+    // Optional cloud sync if Firebase is active
+    if (auth?.currentUser && firebaseConfig.apiKey !== "TU_API_KEY") {
+      try {
+        const blob = await fetch(uri).then((r) => r.blob());
+        const userId = auth.currentUser.uid;
+        const fileRef = ref(storage, `books/${userId}/${Date.now()}_${name}`);
+        await uploadBytes(fileRef, blob);
+        const url = await getDownloadURL(fileRef);
+        newBook.url = url;
+        await addDoc(collection(db, "books"), {
+          userId,
+          name,
+          url,
+          type: isPdf ? "pdf" : "epub",
+          cover: null,
+          pages: [],
+          createdAt: serverTimestamp(),
+          progress: 0,
+        });
+      } catch (fbErr) {
+        console.warn("Firebase sync skipped:", fbErr.message);
+      }
+    }
+
+    Alert.alert("Éxito", `"${name}" se agregó a tu biblioteca.`);
+    navigation.replace("Library");
   } catch (e) {
-    Alert.alert("Error", e.message || "Error al subir libro");
+    Alert.alert("Error", e.message || "Error al abrir el libro");
   }
 }
 
@@ -214,17 +283,40 @@ function Library({ navigation }) {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!auth.currentUser) return;
-    const q = query(collection(db, "books"), where("userId", "==", auth.currentUser.uid), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
-      const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setBooks(arr);
-      setLoading(false);
-    });
+  const fetchBooks = async () => {
+    setLoading(true);
+    const local = await getStoredBooks();
+    setBooks(local);
 
+    if (auth?.currentUser && db && firebaseConfig.apiKey !== "TU_API_KEY") {
+      try {
+        const q = query(collection(db, "books"), where("userId", "==", auth.currentUser.uid), orderBy("createdAt", "desc"));
+        onSnapshot(q, (snap) => {
+          const remote = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const combined = [...local];
+          remote.forEach((r) => {
+            if (!combined.some((c) => c.name === r.name)) {
+              combined.push(r);
+            }
+          });
+          setBooks(combined);
+          setLoading(false);
+        });
+      } catch (e) {
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const unsub = navigation.addListener("focus", () => {
+      fetchBooks();
+    });
+    fetchBooks();
     return unsub;
-  }, []);
+  }, [navigation]);
 
   return (
     <SafeAreaView style={[styles.screen, { paddingTop: 6 }]}>
@@ -248,8 +340,17 @@ function Library({ navigation }) {
       ) : (
         <>
           {books.length === 0 ? (
-            <View style={{ alignItems: "center", marginTop: 80 }}>
-              <Text style={{ color: COLORS.muted }}>No hay libros aÃºn â€” sube alguno.</Text>
+            <View style={{ alignItems: "center", marginTop: 80, paddingHorizontal: 24 }}>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>📚</Text>
+              <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: "700", marginBottom: 6, textAlign: "center" }}>
+                Tu biblioteca está vacía
+              </Text>
+              <Text style={{ color: COLORS.muted, textAlign: "center", marginBottom: 20 }}>
+                Presiona "Subir" para seleccionar un libro PDF o EPUB desde tu dispositivo, o "Buscar" para libros online.
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Upload")} style={[styles.primaryButton, { paddingHorizontal: 24 }]}>
+                <Text style={styles.primaryText}>Subir un libro ahora</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <FlatList
@@ -267,6 +368,7 @@ function Library({ navigation }) {
     </SafeAreaView>
   );
 }
+
 
 /* =========================
    UPLOAD SCREEN (wrapper)
@@ -453,20 +555,32 @@ function Reader({ route, navigation }) {
     );
   }
 
-  // ... (content to keep file size reasonable)
+  if (book.url) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: darkMode ? "#020617" : "#fff" }]}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.readerTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()}><Text style={{ color: COLORS.accent, fontSize: 16 }}>← Volver</Text></TouchableOpacity>
+          <Text style={{ color: COLORS.text, fontWeight: "700", flex: 1, textAlign: "center", marginHorizontal: 8 }} numberOfLines={1}>{book.name}</Text>
+          <View style={{ width: 48 }} />
+        </View>
+        <WebView source={{ uri: book.url }} style={{ flex: 1 }} startInLoadingState />
+      </SafeAreaView>
+    );
+  }
 
-
-  // End of Reader fallback area (trimmed version).
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: darkMode ? "#020617" : COLORS.paper }]}>
       <StatusBar barStyle="light-content" />
       <View style={styles.readerTop}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={{ color: COLORS.accent }}>Volver</Text></TouchableOpacity>
-        <Text style={{ color: COLORS.text, fontWeight: "700" }} numberOfLines={1}>{book.name}</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={{ color: COLORS.accent, fontSize: 16 }}>← Volver</Text></TouchableOpacity>
+        <Text style={{ color: COLORS.text, fontWeight: "700", flex: 1, textAlign: "center", marginHorizontal: 8 }} numberOfLines={1}>{book.name}</Text>
         <View style={{ width: 48 }} />
       </View>
-      <View style={{ flex: 1, padding: 18 }}>
-        <Text style={{ color: darkMode ? COLORS.text : '#222', fontSize }}>{book.pages && book.pages.length ? book.pages[page] : "Sin contenido"}</Text>
+      <View style={{ flex: 1, padding: 18, justifyContent: "center", alignItems: "center" }}>
+        <Text style={{ color: darkMode ? COLORS.text : '#222', fontSize: 18, textAlign: "center" }}>
+          {book.pages && book.pages.length ? book.pages[page] : "Libro sin contenido legible de texto plano."}
+        </Text>
       </View>
     </SafeAreaView>
   );
