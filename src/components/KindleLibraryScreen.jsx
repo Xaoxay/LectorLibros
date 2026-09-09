@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { 
-  Upload, Search, BookOpen, Trash2, LogOut, Loader2, 
-  Sparkles, CheckCircle2, ArrowUpCircle, HardDrive, User, RefreshCw
+  Search, Plus, BookOpen, Sparkles, Loader2, User, 
+  CheckCircle2, ArrowUpCircle 
 } from 'lucide-react';
 import { extractUniversalMetadata } from '../utils/universalParser';
-import { saveBookMetadata, saveBookFile, deleteBook } from '../db/bookStorage';
+import { saveBookMetadata, saveBookFile } from '../db/bookStorage';
 import { uploadBookToCloud } from '../services/firebase';
 import { hapticLight, hapticMedium, hapticSuccess } from '../services/haptics';
 import { createSampleEpub } from '../utils/sampleBook';
@@ -12,31 +12,28 @@ import { createSampleManga } from '../utils/sampleManga';
 
 export default function KindleLibraryScreen({
   books = [],
-  onOpenBook,
+  onSelectBook,
   onRefreshBooks,
   currentUser,
-  onLogout,
-  onOpenUpdates,
-  hasUpdate,
+  onGoToProfile,
+  onGoToUpload,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [activeFilter, setActiveFilter] = useState('Todos'); // 'Todos' | 'PDF' | 'EPUB' | 'Favoritos'
   const [loadingSample, setLoadingSample] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Procesar archivo seleccionado (EPUB, PDF, CBZ)
-  const processBookFile = async (file) => {
+  // Procesar archivo rápido con el botón "+"
+  const handleQuickAddFile = async (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploading(true);
-    setErrorMessage('');
     try {
       hapticMedium();
       const buffer = await file.arrayBuffer();
       const meta = await extractUniversalMetadata(buffer, file.name);
 
-      const bookId = `book_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const bookId = `book_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       await saveBookFile(bookId, buffer);
 
       const bookData = {
@@ -55,32 +52,16 @@ export default function KindleLibraryScreen({
       hapticSuccess();
       await onRefreshBooks();
 
-      // Sincronización en la nube opcional en segundo plano
       if (currentUser && !currentUser.isAnonymous) {
-        uploadBookToCloud(file, bookData, currentUser.uid).catch((err) => {
-          console.warn('Subida a nube (background):', err);
+        uploadBookToCloud(file, bookData, currentUser.uid).catch(err => {
+          console.warn('Subida en segundo plano:', err);
         });
       }
     } catch (err) {
-      console.error('Error al procesar libro:', err);
-      setErrorMessage(err.message || 'Error al procesar el archivo.');
+      console.error(err);
+      alert(err.message || 'Error al procesar el archivo');
     } finally {
-      setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    processBookFile(file);
-  };
-
-  const handleDelete = async (e, bookId) => {
-    e.stopPropagation();
-    if (window.confirm('¿Deseas eliminar este libro de tu biblioteca?')) {
-      hapticLight();
-      await deleteBook(bookId);
-      await onRefreshBooks();
     }
   };
 
@@ -101,7 +82,7 @@ export default function KindleLibraryScreen({
         format = 'cbz';
       } else {
         buffer = await createSampleEpub();
-        title = 'El Principito (Muestra)';
+        title = 'El Principito';
         author = 'Antoine de Saint-Exupéry';
         format = 'epub';
       }
@@ -114,8 +95,8 @@ export default function KindleLibraryScreen({
         name: title,
         author,
         format,
-        cover: null,
-        progress: 0,
+        cover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80',
+        progress: 45,
         lastRead: Date.now(),
       });
 
@@ -123,212 +104,181 @@ export default function KindleLibraryScreen({
       await onRefreshBooks();
     } catch (err) {
       console.error(err);
-      setErrorMessage('No se pudo generar el libro de prueba.');
     } finally {
       setLoadingSample(false);
     }
   };
 
-  // Filtrar libros por búsqueda
-  const filteredBooks = books.filter((b) => {
-    const q = searchQuery.toLowerCase();
-    const title = (b.title || b.name || '').toLowerCase();
-    const author = (b.author || '').toLowerCase();
-    return title.includes(q) || author.includes(q);
+  // Filtrado de libros por búsqueda y formato
+  const filteredBooks = books.filter((book) => {
+    const title = (book.title || book.name || '').toLowerCase();
+    const author = (book.author || '').toLowerCase();
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = title.includes(query) || author.includes(query);
+
+    if (!matchesSearch) return false;
+
+    if (activeFilter === 'Todos') return true;
+    if (activeFilter === 'PDF') return (book.format || '').toLowerCase() === 'pdf';
+    if (activeFilter === 'EPUB') return (book.format || '').toLowerCase() === 'epub';
+    if (activeFilter === 'Favoritos') return !!book.favorite;
+    return true;
   });
 
   return (
-    <div className="min-h-full w-full bg-[#f8f9fa] text-slate-900 flex flex-col">
-      {/* Header Superior Kindle */}
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-5 py-4 flex items-center justify-between shadow-xs">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
-            <span>📚 Kindle Clone</span>
-          </h1>
-          <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
-            {currentUser?.isAnonymous ? (
-              <span className="inline-flex items-center gap-1 text-amber-600">
-                <HardDrive className="w-3 h-3" /> Modo Offline
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-emerald-600 truncate max-w-[200px]">
-                <User className="w-3 h-3" /> {currentUser?.email || 'Usuario'}
-              </span>
-            )}
-          </p>
-        </div>
+    <div className="min-h-full w-full bg-[#0b0f19] text-white flex flex-col p-5 pb-24 select-none safe-top">
+      {/* 1. Encabezado con Título y Avatar de Usuario */}
+      <header className="flex items-center justify-between pt-2 pb-4">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+          Mi Biblioteca
+        </h1>
 
-        <div className="flex items-center gap-2">
-          {hasUpdate && (
-            <button
-              onClick={onOpenUpdates}
-              className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 hover:bg-amber-100 transition-colors cursor-pointer"
-              title="Actualización disponible"
-            >
-              <ArrowUpCircle className="w-5 h-5 animate-pulse" />
-            </button>
-          )}
-
-          <button
-            onClick={onLogout}
-            className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
-            title="Cerrar sesión / Cambiar cuenta"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            hapticLight();
+            onGoToProfile?.();
+          }}
+          className="w-10 h-10 rounded-full bg-[#162032] border border-slate-700/80 flex items-center justify-center text-slate-300 hover:text-white transition-all cursor-pointer shadow-md"
+          title="Ver perfil y configuración"
+        >
+          <User className="w-5 h-5 text-[#007aff]" />
+        </button>
       </header>
 
-      {/* Contenedor Principal */}
-      <main className="flex-1 w-full max-w-2xl mx-auto p-5 pb-24">
-        {/* Error Alert */}
-        {errorMessage && (
-          <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center justify-between">
-            <span>{errorMessage}</span>
-            <button onClick={() => setErrorMessage('')} className="text-rose-500 hover:text-rose-800 font-bold ml-2">
-              ✕
-            </button>
-          </div>
-        )}
+      {/* 2. Barra de Búsqueda y Botón "+" */}
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar libros..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-[#121824] border border-slate-800 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-[#007aff] focus:ring-2 focus:ring-[#007aff]/20 transition-all shadow-xs"
+          />
+        </div>
 
-        {/* Botón Principal: Subir libro (Exacto al diseño del usuario) */}
+        {/* Botón Circular "+" para Carga Rápida */}
         <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="w-full bg-[#4a6fff] hover:bg-[#3d5fe6] active:scale-[0.98] text-white p-4 sm:p-5 rounded-2xl font-extrabold text-base shadow-lg shadow-[#4a6fff]/25 flex items-center justify-center gap-2.5 mb-5 cursor-pointer transition-all disabled:opacity-75"
+          onClick={() => {
+            hapticLight();
+            fileInputRef.current?.click();
+          }}
+          className="w-10 h-10 rounded-xl bg-[#162032] hover:bg-[#1f2d47] border border-slate-750 flex items-center justify-center text-white transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+          title="Agregar libro rápidamente"
         >
-          {uploading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Cargando libro...</span>
-            </>
-          ) : (
-            <>
-              <Upload className="w-5 h-5" />
-              <span>Subir libro</span>
-            </>
-          )}
+          <Plus className="w-5 h-5 text-[#007aff]" />
         </button>
 
-        {/* Input de archivo oculto */}
         <input
           ref={fileInputRef}
           type="file"
           accept=".epub,.pdf,.cbz,application/epub+zip,application/pdf"
-          onChange={handleFileChange}
+          onChange={handleQuickAddFile}
           className="hidden"
         />
+      </div>
 
-        {/* Buscador de libros (aparece si hay libros en la biblioteca) */}
-        {books.length > 0 && (
-          <div className="relative mb-5">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por título o autor..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#4a6fff] focus:ring-2 focus:ring-[#4a6fff]/15 transition-all shadow-xs"
-            />
+      {/* 3. Chips de Filtro (Todos, PDF, EPUB, Favoritos) */}
+      <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar py-1">
+        {['Todos', 'PDF', 'EPUB', 'Favoritos'].map((filter) => {
+          const isActive = activeFilter === filter;
+          return (
+            <button
+              key={filter}
+              onClick={() => {
+                hapticLight();
+                setActiveFilter(filter);
+              }}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-[#007aff] text-white shadow-md shadow-[#007aff]/30'
+                  : 'bg-[#121824] border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+              }`}
+            >
+              {filter}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 4. Cuadrícula de Libros (2 Columnas) */}
+      {filteredBooks.length === 0 ? (
+        <div className="my-auto py-12 px-6 text-center bg-[#121824]/60 rounded-3xl border border-slate-800/80">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#007aff]/10 border border-[#007aff]/20 text-[#007aff] flex items-center justify-center">
+            <BookOpen className="w-8 h-8" />
           </div>
-        )}
+          <h3 className="text-lg font-bold text-white mb-1.5">
+            Tu biblioteca está vacía
+          </h3>
+          <p className="text-xs text-slate-400 max-w-xs mx-auto mb-6 leading-relaxed">
+            Puedes presionar el botón <b>+</b> de arriba o la pestaña <b>Subir</b> para importar tus libros.
+          </p>
 
-        {/* Lista de Libros (Estilo FlatList del usuario) */}
-        {books.length === 0 ? (
-          <div className="text-center py-12 px-6 bg-white rounded-3xl border border-slate-200/80 shadow-xs">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-50 text-[#4a6fff] flex items-center justify-center">
-              <BookOpen className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-1">
-              Tu biblioteca está vacía
-            </h3>
-            <p className="text-xs text-slate-500 max-w-xs mx-auto mb-6">
-              Presiona el botón "Subir libro" de arriba para agregar tus lecturas en EPUB, PDF o CBZ.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
-              <button
-                onClick={() => handleLoadSample('epub')}
-                disabled={loadingSample}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                {loadingSample ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-500" />}
-                <span>Muestra: El Principito</span>
-              </button>
-
-              <button
-                onClick={() => handleLoadSample('manga')}
-                disabled={loadingSample}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                {loadingSample ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-rose-500" />}
-                <span>Muestra: Manga Demo</span>
-              </button>
-            </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => handleLoadSample('epub')}
+              disabled={loadingSample}
+              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#007aff] hover:bg-[#0066d6] text-white text-xs font-extrabold shadow-lg shadow-[#007aff]/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {loadingSample ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>Cargar muestra (El Principito)</span>
+            </button>
           </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1 mb-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Mis Libros ({filteredBooks.length})
-              </span>
-            </div>
-
-            {filteredBooks.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => onOpenBook(item)}
-                role="button"
-                tabIndex={0}
-                className="w-full bg-white rounded-2xl p-4 border border-slate-200/80 hover:border-[#4a6fff]/40 hover:shadow-md transition-all flex items-center gap-3.5 text-left cursor-pointer group select-none active:scale-[0.99]"
-              >
-                {/* Miniatura o Icono de Libro */}
-                <div className="w-12 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200/60 shadow-xs flex items-center justify-center">
-                  {item.cover ? (
-                    <img src={item.cover} alt={item.title || item.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <BookOpen className="w-6 h-6 text-[#4a6fff]/70" />
-                  )}
-                </div>
-
-                {/* Info del Libro */}
-                <div className="flex-1 min-w-0 pr-2">
-                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#4a6fff] transition-colors truncate">
-                    {item.title || item.name}
-                  </h4>
-                  <p className="text-xs text-slate-500 truncate mt-0.5">
-                    {item.author || 'Autor desconocido'}
-                  </p>
-                  
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                      {item.format || 'epub'}
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-medium">
-                      {item.progress ? `${Math.round(item.progress)}% leído` : 'Sin empezar'}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {filteredBooks.map((book) => (
+            <div
+              key={book.id}
+              onClick={() => {
+                hapticLight();
+                onSelectBook(book);
+              }}
+              role="button"
+              tabIndex={0}
+              className="flex flex-col text-left group cursor-pointer select-none"
+            >
+              {/* Tarjeta de Portada Redondeada */}
+              <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-lg border border-slate-800/90 group-hover:border-[#007aff]/60 group-hover:shadow-[#007aff]/15 transition-all bg-[#121824] flex items-center justify-center relative mb-2.5">
+                {book.cover ? (
+                  <img
+                    src={book.cover}
+                    alt={book.title || book.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="p-4 flex flex-col items-center justify-center text-center">
+                    <BookOpen className="w-8 h-8 text-[#007aff]/70 mb-2" />
+                    <span className="text-[11px] font-bold text-slate-400 line-clamp-2">
+                      {book.title || book.name}
                     </span>
                   </div>
-                </div>
+                )}
 
-                {/* Botón eliminar libro */}
-                <button
-                  onClick={(e) => handleDelete(e, item.id)}
-                  className="p-2 rounded-xl text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-all shrink-0 cursor-pointer"
-                  title="Eliminar libro"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {/* Badge de Progreso si se ha leído */}
+                {book.progress > 0 && (
+                  <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-[10px] font-black text-[#007aff] border border-slate-700/50">
+                    {Math.round(book.progress)}%
+                  </div>
+                )}
               </div>
-            ))}
 
-            {filteredBooks.length === 0 && searchQuery && (
-              <div className="text-center py-8 text-xs text-slate-400">
-                No se encontraron libros con "{searchQuery}".
+              {/* Título del Libro en Blanco Nítido */}
+              <h3 className="text-sm font-bold text-white group-hover:text-[#007aff] transition-colors truncate">
+                {book.title || book.name}
+              </h3>
+
+              {/* Etiqueta de Formato */}
+              <div className="mt-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#162032] text-slate-400 border border-slate-750">
+                  {book.format || 'EPUB'}
+                </span>
               </div>
-            )}
-          </div>
-        )}
-      </main>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
