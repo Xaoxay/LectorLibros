@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
    X, Highlighter, Trash2, ChevronRight, Clock, 
-   Edit3, Check, Copy, MessageSquare, Search, BookOpen 
+   Edit3, Check, Copy, MessageSquare, Search 
  } from 'lucide-react';
 
 const COLOR_MAP = {

@@ -7,8 +7,8 @@ android {
         applicationId "com.lectorlibros.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 25
-        versionName "1.0.25"
+        versionCode 26
+        versionName "1.0.26"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -20,10 +20,24 @@ android {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
+    signingConfigs {
+        permanentConfig {
+            if (file('lectorlibros.keystore').exists()) {
+                storeFile file('lectorlibros.keystore')
+                storePassword 'android'
+                keyAlias 'lectorlibros'
+                keyPassword 'android'
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.permanentConfig
+        }
+        debug {
+            signingConfig signingConfigs.permanentConfig
         }
     }
 }

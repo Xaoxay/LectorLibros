@@ -174,7 +174,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="w-full h-full overflow-y-auto"
+            className="w-full h-full overflow-y-auto overscroll-contain"
           >
             <LibraryView
               books={books}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, MoreVertical, Trash2, Clock, CheckCircle2 } from 'lucide-react';
+import { BookOpen, MoreVertical, Trash2, CheckCircle2 } from 'lucide-react';
 
 export default function BookCard({ book, onOpen, onDelete }) {
   const [showMenu, setShowMenu] = React.useState(false);

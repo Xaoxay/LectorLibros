@@ -2,7 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Compass, Layers, FileText, CheckCircle2, Heart,
-  Upload, ArrowUpCircle, X, Sparkles, Smartphone, ChevronRight, HardDrive
+  Upload, ArrowUpCircle, X, Sparkles, Smartphone, ChevronRight, HardDrive,
+  ArrowRight, Loader2, Check
 } from 'lucide-react';
 import { APP_VERSION } from '../config/version';
 
@@ -23,6 +24,9 @@ export default function SidebarDrawer({
   hasUpdate,
   installPrompt,
   onOpenInstall,
+  onQuickAddSample,
+  sampleLoadingId,
+  sampleSuccessId,
 }) {
   const librarySections = [
     {
@@ -207,6 +211,86 @@ export default function SidebarDrawer({
                 </span>
                 {renderNavGroup(formatSections)}
               </div>
+
+              {/* Sección 3: Lecturas Instantáneas (Sin Internet) */}
+              {onQuickAddSample && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-2 mb-1">
+                    <span className="text-xs font-bold text-slate-400 tracking-wider uppercase block">
+                      Lecturas Instantáneas
+                    </span>
+                    <span className="text-[10px] text-amber-400/90 font-bold bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+                      Sin internet
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* El Principito */}
+                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all flex items-center justify-between gap-3 group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-13 rounded-xl bg-gradient-to-br from-amber-500 to-amber-950 border border-amber-400/30 flex items-center justify-center flex-shrink-0 shadow-md">
+                          <BookOpen className="w-5 h-5 text-amber-200" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-wide block">Novela EPUB</span>
+                          <h5 className="text-xs sm:text-sm font-bold text-white truncate">El Principito</h5>
+                          <span className="text-[11px] text-slate-400 block truncate">Antoine de Saint-Exupéry</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onQuickAddSample('epub');
+                        }}
+                        disabled={sampleLoadingId === 'sample_epub'}
+                        className="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs flex items-center gap-1.5 flex-shrink-0 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                      >
+                        {sampleLoadingId === 'sample_epub' ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : sampleSuccessId === 'sample_epub' ? (
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        ) : (
+                          <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                        )}
+                        <span>{sampleSuccessId === 'sample_epub' ? '¡Listo!' : 'Cargar'}</span>
+                      </button>
+                    </div>
+
+                    {/* Manga CBZ */}
+                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all flex items-center justify-between gap-3 group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-13 rounded-xl bg-gradient-to-br from-purple-600 to-slate-950 border border-purple-400/30 flex items-center justify-center flex-shrink-0 shadow-md">
+                          <Layers className="w-5 h-5 text-purple-200" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-extrabold text-purple-400 uppercase tracking-wide block">Manga CBZ</span>
+                          <h5 className="text-xs sm:text-sm font-bold text-white truncate">Demo Manga</h5>
+                          <span className="text-[11px] text-slate-400 block truncate">Lectura japonesa (RTL)</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onQuickAddSample('cbz');
+                        }}
+                        disabled={sampleLoadingId === 'sample_cbz'}
+                        className="h-9 px-3.5 rounded-xl bg-purple-500 hover:bg-purple-400 active:scale-95 text-white font-black text-xs flex items-center gap-1.5 flex-shrink-0 transition-all shadow-md shadow-purple-500/20 cursor-pointer"
+                      >
+                        {sampleLoadingId === 'sample_cbz' ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                        ) : sampleSuccessId === 'sample_cbz' ? (
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        ) : (
+                          <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                        )}
+                        <span>{sampleSuccessId === 'sample_cbz' ? '¡Listo!' : 'Cargar'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ÚNICO BOTÓN PRINCIPAL PARA SUBIR LIBROS */}
               <div className="pt-1">
