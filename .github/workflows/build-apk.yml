@@ -53,7 +53,10 @@ jobs:
           mkdir -p android/app/src/main/assets/public
           cp -r dist/* android/app/src/main/assets/public/
           cp capacitor.config.json android/app/src/main/assets/capacitor.config.json || true
-          npx cap sync android || echo "::warning::Sync con capacitor finalizo con advertencias"
+          mkdir -p android/capacitor-cordova-android-plugins
+          if [ ! -f android/capacitor-cordova-android-plugins/cordova.variables.gradle ]; then
+            echo "ext { cdvMinSdkVersion = 24; cdvPluginPostBuildExtras = []; cordovaConfig = [:] }" > android/capacitor-cordova-android-plugins/cordova.variables.gradle
+          fi
 
       - name: Compilar APK Debug con Gradle
         working-directory: ./android
@@ -68,13 +71,6 @@ jobs:
           echo "==================== ULTIMAS LINEAS DE GRADLE ===================="
           tail -n 200 gradle_build.log || tail -n 200 android/gradle_build.log || true
           echo "================================================================="
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B debug-logs
-          cp gradle_build.log android_build_error.log || cp android/gradle_build.log android_build_error.log || true
-          git add android_build_error.log
-          git commit -m "ci: dump gradle error log" || true
-          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:debug-logs --force || true
 
       - name: Subir log de error si falla
         if: failure()
