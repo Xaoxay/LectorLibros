@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Plus, Upload, Search, Smartphone, 
   Sparkles, Compass, Download, X, Layers, Loader2, AlertCircle,
-  ArrowUpCircle, Check, BookMarked, Grid, List, Flame
+  ArrowUpCircle, Check, Menu, Filter, ArrowRight
 } from 'lucide-react';
 import Book3DCard from './Book3DCard';
 import ContinueReadingHero from './ContinueReadingHero';
 import AndroidInstallModal from './AndroidInstallModal';
 import CatalogModal from './CatalogModal';
+import SidebarDrawer from './SidebarDrawer';
 import { extractUniversalMetadata } from '../utils/universalParser';
 import { saveBookMetadata, saveBookFile, deleteBook } from '../db/bookStorage';
 import { createSampleEpub } from '../utils/sampleBook';
@@ -71,6 +72,7 @@ export default function LibraryView({
   hasUpdate,
   onOpenUpdates,
 }) {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [uploading, setUploading] = useState(false);
@@ -225,6 +227,7 @@ export default function LibraryView({
   const epubCount = books.filter(b => !b.format || b.format === 'epub').length;
   const pdfCount = books.filter(b => b.format === 'pdf').length;
   const mangaCount = books.filter(b => b.format === 'cbz').length;
+  const completedCount = books.filter(b => b.progress >= 99).length;
 
   const filteredBooks = books.filter(book => {
     const matchesSearch = 
@@ -240,6 +243,14 @@ export default function LibraryView({
   });
 
   const heroBook = books.find(b => b.progress > 0 && b.progress < 99) || books[0];
+
+  const filterTitles = {
+    all: 'Mi Biblioteca',
+    epub: 'Novelas EPUB',
+    pdf: 'Documentos PDF',
+    cbz: 'Manga / Cómics',
+    completed: 'Libros Leídos',
+  };
 
   return (
     <div 
@@ -264,42 +275,48 @@ export default function LibraryView({
         )}
       </AnimatePresence>
 
-      {/* 1. BARRA SUPERIOR COMPACTA, ELEGANTE Y RESPETUOSA DEL NOTCH */}
-      <header className="sticky top-0 z-40 glass-panel safe-top px-4 py-2.5 border-b border-white/[0.06]">
+      {/* 1. BARRA SUPERIOR TOTALMENTE DESPEJADA: SOLO MENÚ ☰ Y BÚSQUEDA */}
+      <header className="sticky top-0 z-40 glass-panel safe-top px-3 sm:px-5 py-2.5 border-b border-white/[0.06]">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2.5">
-          {/* Logo y título compacto */}
+          {/* Lado Izquierdo: Botón Hamburguesa ☰ + Título */}
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 p-0.5 shadow-md shadow-amber-500/20 flex-shrink-0">
-              <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                <BookOpen className="w-4 h-4 text-amber-400" />
-              </div>
-            </div>
+            <button
+              onClick={() => setIsDrawerOpen(true)}
+              className="relative w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 text-slate-200 flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+              title="Abrir menú de navegación"
+              aria-label="Abrir menú"
+            >
+              <Menu className="w-5 h-5" />
+              {hasUpdate && (
+                <span className="absolute 1 top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-950 animate-ping" />
+              )}
+            </button>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-none truncate">
-                  Lector Libros
+                <h1 className="text-base sm:text-lg font-extrabold text-white tracking-tight leading-none truncate">
+                  {filterTitles[activeFilter] || 'Mi Biblioteca'}
                 </h1>
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25 flex-shrink-0">
-                  {books.length}
+                  {filteredBooks.length}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Botones de acción compactos */}
+          {/* Lado Derecho: Acciones rápidas (Búsqueda + Importar) */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {/* Botón Explorar Catálogo */}
+            {/* Botón rápido Explorar Catálogo */}
             <button
               onClick={() => setShowCatalog(true)}
               className="h-8.5 px-3 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-95 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-              title="Descargar libros gratis de Project Gutenberg"
+              title="Descargar libros de Gutenberg"
             >
               <Compass className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Catálogo</span>
+              <span className="hidden xs:inline">Catálogo</span>
             </button>
 
-            {/* Botón Agregar Rápido */}
+            {/* Botón Importar */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
@@ -313,20 +330,6 @@ export default function LibraryView({
               )}
               <span className="hidden xs:inline">Importar</span>
             </button>
-
-            {/* Botón Actualizaciones */}
-            {onOpenUpdates && (
-              <button
-                onClick={onOpenUpdates}
-                className="relative h-8.5 w-8.5 rounded-xl bg-slate-900 border border-white/10 hover:bg-slate-800 active:scale-95 text-slate-300 flex items-center justify-center transition-all cursor-pointer"
-                title="Ajustes y actualizaciones"
-              >
-                <ArrowUpCircle className={`w-4 h-4 ${hasUpdate ? 'text-amber-400' : 'text-slate-400'}`} />
-                {hasUpdate && (
-                  <span className="absolute 1 top-1 right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-950 animate-ping" />
-                )}
-              </button>
-            )}
           </div>
         </div>
       </header>
@@ -340,7 +343,7 @@ export default function LibraryView({
         className="hidden"
       />
 
-      {/* 2. CONTENIDO PRINCIPAL CON MÁXIMO APROVECHAMIENTO DEL ESPACIO */}
+      {/* 2. CONTENIDO PRINCIPAL CON MÁXIMO ESPACIO PARA LECTURA */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-5 flex flex-col">
         {/* Mensaje de error si ocurre */}
         {errorMessage && (
@@ -359,6 +362,22 @@ export default function LibraryView({
           </motion.div>
         )}
 
+        {/* Indicador de Filtro activo con botón para restablecer */}
+        {activeFilter !== 'all' && (
+          <div className="mb-3 p-2.5 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs text-amber-300">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-amber-400" />
+              <span>Mostrando solo: <strong>{filterTitles[activeFilter]}</strong></span>
+            </div>
+            <button 
+              onClick={() => setActiveFilter('all')}
+              className="text-[11px] underline font-bold hover:text-amber-200 cursor-pointer"
+            >
+              Ver todos
+            </button>
+          </div>
+        )}
+
         {/* SI HAY LIBROS EN LA BIBLIOTECA */}
         {books.length > 0 ? (
           <>
@@ -367,14 +386,13 @@ export default function LibraryView({
               <ContinueReadingHero book={heroBook} onOpen={onOpenBook} />
             )}
 
-            {/* Barra compacta de Búsqueda y Filtros */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-4">
-              {/* Buscador compacto */}
-              <div className="relative flex-1">
+            {/* Buscador de libros compacto */}
+            <div className="mb-4">
+              <div className="relative w-full">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Buscar por título o autor..."
+                  placeholder="Buscar en la biblioteca por título o autor..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="w-full h-10 pl-10 pr-9 bg-slate-900/90 border border-white/10 rounded-xl text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
@@ -388,42 +406,12 @@ export default function LibraryView({
                   </button>
                 )}
               </div>
-
-              {/* Filtros de formato comprimidos */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                {[
-                  { id: 'all', label: 'Todos', count: books.length },
-                  { id: 'epub', label: 'EPUB', count: epubCount },
-                  { id: 'pdf', label: 'PDF', count: pdfCount },
-                  { id: 'cbz', label: 'Manga', count: mangaCount },
-                ].map(tab => {
-                  const isActive = activeFilter === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveFilter(tab.id)}
-                      className={`h-8 px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 flex-shrink-0 active:scale-95 cursor-pointer ${
-                        isActive 
-                          ? 'bg-amber-400 text-slate-950 shadow-sm' 
-                          : 'text-slate-300 bg-slate-900/80 border border-white/10 hover:bg-slate-800'
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${
-                        isActive ? 'bg-slate-950/20 text-slate-950 font-extrabold' : 'bg-slate-800 text-slate-400'
-                      }`}>
-                        {tab.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
 
             {/* GRILLA DE LIBROS (Optimizada para espacio y densidad en pantalla) */}
             {filteredBooks.length === 0 ? (
               <div className="text-center py-12 text-slate-500">
-                <p className="text-sm font-semibold">No se encontraron libros con ese filtro.</p>
+                <p className="text-sm font-semibold">No se encontraron libros con ese filtro o búsqueda.</p>
                 <button
                   onClick={() => { setSearch(''); setActiveFilter('all'); }}
                   className="mt-2 text-xs text-amber-400 hover:underline font-bold"
@@ -569,7 +557,7 @@ export default function LibraryView({
                 </div>
                 <button
                   onClick={() => setShowCatalog(true)}
-                  className="text-xs text-indigo-300 hover:text-indigo-200 hover:underline font-semibold"
+                  className="text-xs text-indigo-300 hover:text-indigo-200 hover:underline font-semibold cursor-pointer"
                 >
                   Ver +70.000 títulos
                 </button>
@@ -636,7 +624,7 @@ export default function LibraryView({
               </div>
             </div>
 
-            {/* SECCIÓN 3: Formatos Compatibles (Píldora informativa elegante) */}
+            {/* SECCIÓN 3: Formatos Compatibles */}
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
               <span className="font-semibold text-slate-300">Formatos 100% compatibles:</span>
               <div className="flex items-center gap-2">
@@ -649,8 +637,7 @@ export default function LibraryView({
         )}
       </main>
 
-      {/* 3. BOTÓN FLOTANTE ERGONÓMICO (FAB) EN LA ESQUINA INFERIOR
-          Siempre al alcance del pulgar sin quitar espacio en vertical */}
+      {/* 3. BOTÓN FLOTANTE ERGONÓMICO (FAB) */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -666,6 +653,25 @@ export default function LibraryView({
         )}
         <span>Agregar libro</span>
       </motion.button>
+
+      {/* Barra lateral deslizable (Sidebar Drawer) */}
+      <SidebarDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        activeFilter={activeFilter}
+        onSelectFilter={setActiveFilter}
+        totalBooks={books.length}
+        epubCount={epubCount}
+        pdfCount={pdfCount}
+        mangaCount={mangaCount}
+        completedCount={completedCount}
+        onOpenCatalog={() => setShowCatalog(true)}
+        onImportClick={() => fileInputRef.current?.click()}
+        onOpenUpdates={onOpenUpdates}
+        hasUpdate={hasUpdate}
+        installPrompt={installPrompt}
+        onOpenInstall={() => setShowInstallGuide(true)}
+      />
 
       {/* Modales */}
       <AndroidInstallModal
