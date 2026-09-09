@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, RefreshCw, CheckCircle2, AlertTriangle, Download, 
-  Sparkles, ShieldCheck, GitBranch, Settings2, Info, ArrowUpCircle 
+  Sparkles, ShieldCheck, GitBranch, Settings2, Info, ArrowUpCircle,
+  ExternalLink, Copy, Check, Globe
 } from 'lucide-react';
 import { APP_VERSION, BUILD_DATE } from '../config/version';
 import { 
-  checkForUpdates, applyUpdate, getUpdateSettings, 
+  checkForUpdates, applyUpdate, openUrl, getUpdateSettings, 
   saveUpdateSettings, getLastCheckTime 
 } from '../services/updateService';
 import { hapticLight, hapticSuccess } from '../services/haptics';
@@ -74,6 +75,39 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
     await applyUpdate(updateInfo);
   };
 
+  const handleOpenGitHub = async () => {
+    hapticSuccess();
+    const url = updateInfo?.releasePageUrl || updateInfo?.downloadUrl;
+    if (url) {
+      await openUrl(url);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const url = updateInfo?.downloadUrl || updateInfo?.releasePageUrl || '';
+    if (!url) return;
+    hapticLight();
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      hapticSuccess();
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 3000);
+    } catch (e) {
+      console.error('Copy failed:', e);
+    }
+  };
+
   const formatLastCheck = (timestamp) => {
     if (!timestamp) return 'Nunca';
     const diffMin = Math.round((Date.now() - timestamp) / (1000 * 60));
@@ -89,13 +123,14 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
     setUpdateInfo({
       hasUpdate: true,
       currentVersion: APP_VERSION,
-      latestVersion: '1.1.0',
-      releaseName: 'Versión 1.1.0 (Próxima actualización)',
-      releaseNotes: '• Corrección en la alineación del modo noche\n• Mejoras de rendimiento al pasar páginas\n• Nuevos filtros de búsqueda por idioma',
-      downloadUrl: 'https://github.com',
+      latestVersion: '1.0.24',
+      releaseName: 'Versión 1.0.24 (Nueva actualización)',
+      releaseNotes: '• Solución al bucle de descarga de APK en Android\n• Botón directo a página de GitHub y copiar enlace para Chrome\n• Ajustes de navegación y feedback háptico',
+      downloadUrl: 'https://github.com/Xaoxay/LectorLibros/releases/download/v1.0.23/LectorLibros.apk',
+      releasePageUrl: 'https://github.com/Xaoxay/LectorLibros/releases/tag/v1.0.23',
       isApk: true,
       isPwaUpdate: false,
-      publishedAt: '2026-09-10',
+      publishedAt: '2026-09-09',
       source: 'simulación',
     });
     setCheckedOnce(true);
@@ -218,23 +253,73 @@ export default function UpdateModal({ isOpen, onClose, onUpdateAvailableChange }
                       </pre>
                     </div>
 
-                    <div className="pt-2 space-y-2">
-                      <button
-                        onClick={handleApply}
-                        className="w-full h-12 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-yellow-400 active:scale-98 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
-                      >
-                        <Download className="w-5 h-5 stroke-[2.5]" />
-                        <span>
-                          {updateInfo.isPwaUpdate 
-                            ? 'Actualizar App Ahora (Recargar)' 
-                            : 'Descargar e Instalar (.apk)'}
-                        </span>
-                      </button>
+                    <div className="pt-2 space-y-3">
+                      {updateInfo.isPwaUpdate ? (
+                        <button
+                          onClick={handleApply}
+                          className="w-full h-12 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 active:scale-98 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
+                        >
+                          <RefreshCw className="w-5 h-5" />
+                          <span>Actualizar App Ahora (Recargar)</span>
+                        </button>
+                      ) : (
+                        <>
+                          {/* Botón principal recomendado: Abrir en GitHub */}
+                          <button
+                            onClick={handleOpenGitHub}
+                            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:brightness-105 active:scale-98 text-slate-950 font-black text-sm flex items-center justify-center gap-3 shadow-lg shadow-amber-500/30 transition-all cursor-pointer"
+                          >
+                            <ExternalLink className="w-5 h-5 stroke-[2.5] flex-shrink-0" />
+                            <div className="text-left">
+                              <div className="leading-tight font-black">Abrir en GitHub (Sin bucle)</div>
+                              <div className="text-[11px] text-amber-950/85 font-semibold leading-tight">
+                                Recomendado • Se descarga en Chrome con 1 toque
+                              </div>
+                            </div>
+                          </button>
 
-                      {updateInfo.downloadUrl && (
-                        <p className="text-[11px] text-slate-400 text-center leading-normal bg-white/5 p-2.5 rounded-xl border border-white/5">
-                          💡 <strong>Consejo:</strong> Si tu celular te muestra una advertencia de seguridad, selecciona <em>"Descargar de todos modos"</em> para completar la instalación.
-                        </p>
+                          {/* Opciones secundarias: Descarga directa y Copiar enlace */}
+                          <div className="grid grid-cols-2 gap-2.5">
+                            <button
+                              onClick={handleApply}
+                              className="h-11 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:bg-slate-650 border border-white/10 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                              title="Intentar descarga directa de APK"
+                            >
+                              <Download className="w-4 h-4 text-amber-400" />
+                              <span>Descarga directa</span>
+                            </button>
+
+                            <button
+                              onClick={handleCopyLink}
+                              className="h-11 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:bg-slate-650 border border-white/10 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                              title="Copiar enlace para pegar en Chrome"
+                            >
+                              {copiedLink ? (
+                                <>
+                                  <Check className="w-4 h-4 text-emerald-400" />
+                                  <span className="text-emerald-300">¡Enlace copiado!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-4 h-4 text-slate-300" />
+                                  <span>Copiar enlace</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Tarjeta explicativa sobre el bucle en Android */}
+                          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-amber-500/25 text-xs text-slate-300 leading-relaxed space-y-1.5">
+                            <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                              <span>¿Por qué la descarga queda en bucle?</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400">
+                              Android bloquea por seguridad las descargas directas de archivos <span className="text-amber-300 font-mono font-semibold">.apk</span> dentro de pestañas embebidas. 
+                              Al tocar <strong className="text-slate-200">"Abrir en GitHub"</strong> o pegar el enlace copiado en tu navegador <strong className="text-slate-200">Google Chrome</strong>, el instalador se descarga sin problemas a tu carpeta de Descargas.
+                            </p>
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>

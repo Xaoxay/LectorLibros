@@ -114,6 +114,7 @@ export async function checkForUpdates(force = false) {
           releaseName: release.name || `Versión ${latestTag}`,
           releaseNotes: release.body || 'Correcciones de errores y mejoras de rendimiento.',
           downloadUrl,
+          releasePageUrl: release.html_url,
           isApk: !!apkAsset,
           isPwaUpdate,
           publishedAt: release.published_at,
@@ -141,6 +142,7 @@ export async function checkForUpdates(force = false) {
         releaseName: `Versión ${latestVersion}`,
         releaseNotes: Array.isArray(data.notes) ? data.notes.join('\n• ') : (data.notes || 'Mejoras y correcciones.'),
         downloadUrl: data.downloadUrl || data.apkUrl || '',
+        releasePageUrl: data.releasePageUrl || data.downloadUrl || '',
         isApk: (data.downloadUrl || data.apkUrl || '').toLowerCase().endsWith('.apk'),
         isPwaUpdate,
         publishedAt: data.buildDate || null,
@@ -160,6 +162,7 @@ export async function checkForUpdates(force = false) {
       releaseName: 'Actualización en caliente',
       releaseNotes: 'Hay una nueva versión de la interfaz disponible con mejoras y arreglos.',
       downloadUrl: '',
+      releasePageUrl: '',
       isPwaUpdate: true,
       source: 'pwa',
     };
@@ -171,8 +174,33 @@ export async function checkForUpdates(force = false) {
     latestVersion: APP_VERSION,
     releaseNotes: '',
     downloadUrl: '',
+    releasePageUrl: '',
     isPwaUpdate: false,
   };
+}
+
+/**
+ * Abre una URL en el navegador externo del sistema
+ */
+export async function openUrl(url) {
+  if (!url) return;
+  try {
+    await Browser.open({ url });
+  } catch {
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (document.body.contains(a)) document.body.removeChild(a);
+      }, 500);
+    } catch {
+      window.open(url, '_blank');
+    }
+  }
 }
 
 /**
@@ -196,24 +224,6 @@ export async function applyUpdate(updateInfo) {
 
   const url = updateInfo.downloadUrl || updateInfo.releasePageUrl;
   if (url) {
-    try {
-      // Abre en el navegador externo predeterminado (Chrome / Samsung Internet)
-      // para que el Download Manager de Android gestione la descarga sin bucles
-      await Browser.open({ url });
-    } catch {
-      try {
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-          if (document.body.contains(a)) document.body.removeChild(a);
-        }, 500);
-      } catch {
-        window.open(url, '_blank');
-      }
-    }
+    await openUrl(url);
   }
 }
