@@ -1,49 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import LibraryView from './components/LibraryView';
-import ReaderView from './components/ReaderView';
-import PdfReaderView from './components/PdfReaderView';
-import MangaReaderView from './components/MangaReaderView';
+import KindleAuthScreen from './components/KindleAuthScreen';
+import KindleLibraryScreen from './components/KindleLibraryScreen';
+import KindleReaderScreen from './components/KindleReaderScreen';
 import UpdateModal from './components/UpdateModal';
-import AuthModal from './components/AuthModal';
 import { getBooks, getBookFile } from './db/bookStorage';
 import { checkForUpdates, getUpdateSettings } from './services/updateService';
-import { subscribeAuth } from './services/firebase';
-import { Loader2, Sparkles, ArrowUpCircle } from 'lucide-react';
+import { subscribeAuth, logoutUser } from './services/firebase';
+import { Loader2 } from 'lucide-react';
 
 export default function App() {
+  const [currentScreen, setCurrentScreen] = useState(() => {
+    const savedUser = localStorage.getItem('lector_current_user');
+    return savedUser ? 'library' : 'auth';
+  });
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    const savedUser = localStorage.getItem('lector_current_user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
   const [books, setBooks] = useState([]);
   const [activeBook, setActiveBook] = useState(null);
   const [activeBookBuffer, setActiveBookBuffer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingBook, setLoadingBook] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState(null);
-
-  // Estado de Autenticación y Nube (Firebase)
-  const [currentUser, setCurrentUser] = useState(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Estado de Actualizaciones
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(null);
 
+  // Suscripción a Firebase Auth
   useEffect(() => {
     const unsubscribe = subscribeAuth((user) => {
       setCurrentUser(user);
+      if (user && currentScreen === 'auth') {
+        setCurrentScreen('library');
+      }
     });
     return () => unsubscribe && unsubscribe();
-  }, []);
-
-  // Capturar evento de instalación PWA nativa en Android/PC
-  useEffect(() => {
-    const handleBeforeInstall = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-  }, []);
+  }, [currentScreen]);
 
   // Comprobar actualizaciones automáticamente al inicio
   useEffect(() => {
@@ -79,17 +75,14 @@ export default function App() {
     loadBooks();
   }, []);
 
-  // Abrir libro según formato (EPUB, PDF, MANGA)
+  // Abrir libro desde la biblioteca
   const handleOpenBook = async (book) => {
     setLoadingBook(true);
     try {
       const buffer = await getBookFile(book.id);
-      if (!buffer) {
-        alert('No se pudo encontrar el archivo del libro en memoria.');
-        return;
-      }
       setActiveBook(book);
-      setActiveBookBuffer(buffer);
+      setActiveBookBuffer(buffer || null);
+      setCurrentScreen('reader');
     } catch (err) {
       console.error('Error al abrir el libro:', err);
       alert('Ocurrió un error al cargar el libro.');
@@ -98,118 +91,80 @@ export default function App() {
     }
   };
 
+  // Volver a la biblioteca
   const handleBackToLibrary = async () => {
     setActiveBook(null);
     setActiveBookBuffer(null);
+    setCurrentScreen('library');
     await loadBooks();
+  };
+
+  // Cerrar sesión
+  const handleLogout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
+    setCurrentScreen('auth');
+  };
+
+  // Login completado
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    setCurrentScreen('library');
   };
 
   if (loading) {
     return (
-      <div className="h-full w-full bg-slate-950 flex flex-col items-center justify-center text-slate-300">
-        <div className="relative mb-3">
-          <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
-          <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full" />
-        </div>
-        <p className="text-sm font-medium tracking-wide">Iniciando Lector Digital...</p>
+      <div className="h-full w-full bg-[#f8f9fa] flex flex-col items-center justify-center text-slate-800">
+        <Loader2 className="w-10 h-10 text-[#4a6fff] animate-spin mb-3" />
+        <p className="text-sm font-bold tracking-tight">📚 Kindle Clone</p>
       </div>
     );
   }
 
-  // Renderizar el visor adecuado según el formato
-  const renderReader = () => {
-    if (!activeBook || !activeBookBuffer) return null;
-
-    const format = activeBook.format || 'epub';
-    if (format === 'pdf') {
-      return (
-        <PdfReaderView
-          bookMeta={activeBook}
-          bookBuffer={activeBookBuffer}
-          onBack={handleBackToLibrary}
-        />
-      );
-    } else if (format === 'cbz') {
-      return (
-        <MangaReaderView
-          bookMeta={activeBook}
-          bookBuffer={activeBookBuffer}
-          onBack={handleBackToLibrary}
-        />
-      );
-    } else {
-      return (
-        <ReaderView
-          bookMeta={activeBook}
-          bookBuffer={activeBookBuffer}
-          onBack={handleBackToLibrary}
-          onOpenUpdates={() => setShowUpdateModal(true)}
-        />
-      );
-    }
-  };
-
   return (
-    <div className="relative h-full w-full overflow-hidden bg-slate-950">
-
-      <AnimatePresence mode="wait">
+    <div className="relative h-full w-full overflow-hidden bg-[#f8f9fa]">
+      {/* Overlay de Carga de Libro */}
+      <AnimatePresence>
         {loadingBook && (
           <motion.div
-            key="loading-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center text-slate-100"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex flex-col items-center justify-center text-white"
           >
-            <div className="relative mb-3">
-              <Loader2 className="w-12 h-12 text-amber-500 animate-spin" />
-              <div className="absolute inset-0 bg-amber-500/30 blur-xl rounded-full" />
-            </div>
-            <p className="text-sm font-semibold tracking-wide">Cargando libro...</p>
-          </motion.div>
-        )}
-
-        {activeBook && activeBookBuffer ? (
-          <motion.div
-            key="reader-view"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="w-full h-full"
-          >
-            {renderReader()}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="library-view"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="w-full h-full overflow-y-auto overscroll-contain"
-          >
-            <LibraryView
-              books={books}
-              onOpenBook={handleOpenBook}
-              onRefreshBooks={loadBooks}
-              installPrompt={installPrompt}
-              hasUpdate={!!updateAvailable}
-              onOpenUpdates={() => setShowUpdateModal(true)}
-              currentUser={currentUser}
-              onOpenAuth={() => setShowAuthModal(true)}
-            />
+            <Loader2 className="w-10 h-10 text-white animate-spin mb-3" />
+            <p className="text-sm font-bold">Abriendo libro...</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Modal de Autenticación y Nube (Kindle Clone / Firebase) */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        currentUser={currentUser}
-        onUserChange={(user) => setCurrentUser(user)}
-      />
+      {/* Navegación por Pantallas (Stack Navigator: Auth -> Library -> Reader) */}
+      <div className="h-full w-full overflow-y-auto overscroll-contain">
+        {currentScreen === 'auth' && (
+          <KindleAuthScreen onLoginSuccess={handleLoginSuccess} />
+        )}
+
+        {currentScreen === 'library' && (
+          <KindleLibraryScreen
+            books={books}
+            onOpenBook={handleOpenBook}
+            onRefreshBooks={loadBooks}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            onOpenUpdates={() => setShowUpdateModal(true)}
+            hasUpdate={!!updateAvailable}
+          />
+        )}
+
+        {currentScreen === 'reader' && activeBook && (
+          <KindleReaderScreen
+            book={activeBook}
+            bookBuffer={activeBookBuffer}
+            onBack={handleBackToLibrary}
+            onOpenUpdates={() => setShowUpdateModal(true)}
+          />
+        )}
+      </div>
 
       {/* Modal de Actualizaciones */}
       <UpdateModal
