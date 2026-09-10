@@ -1,4 +1,4 @@
-// App.js - Lector Libros (Kindle Clone Completo - 10 Pantallas)
+// App.js - Lector Libros (Lector Libros Completo - 10 Pantallas)
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
-  SafeAreaView,
   ActivityIndicator,
   Dimensions,
   StatusBar,
@@ -15,15 +14,13 @@ import {
   StyleSheet,
   ScrollView,
   Share,
-  Animated,
-  PanResponder,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
-import JSZip from "jszip";
-import { WebView } from "react-native-webview";
-import Pdf from "react-native-pdf";
+import { parseEpubFromBase64 } from "./src/epub";
+import Reader from "./src/Reader";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -33,206 +30,6 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 /* ==========================================================================
    UTILIDADES PARA DECODIFICACIÓN Y PARSEO NATIVO DE EPUB
    ========================================================================== */
-function decodeHtmlEntities(text) {
-  if (!text) return "";
-  const entities = {
-    "&nbsp;": " ",
-    "&amp;": "&",
-    "&lt;": "<",
-    "&gt;": ">",
-    "&quot;": '"',
-    "&#39;": "'",
-    "&apos;": "'",
-    "&mdash;": "—",
-    "&ndash;": "–",
-    "&hellip;": "…",
-    "&laquo;": "«",
-    "&raquo;": "»",
-    "&ldquo;": '"',
-    "&rdquo;": '"',
-    "&lsquo;": "'",
-    "&rsquo;": "'",
-    "&aacute;": "á",
-    "&eacute;": "é",
-    "&iacute;": "í",
-    "&oacute;": "ó",
-    "&uacute;": "ú",
-    "&ntilde;": "ñ",
-    "&Aacute;": "Á",
-    "&Eacute;": "É",
-    "&Iacute;": "Í",
-    "&Oacute;": "Ó",
-    "&Uacute;": "Ú",
-    "&Ntilde;": "Ñ",
-    "&iexcl;": "¡",
-    "&iquest;": "¿",
-  };
-
-  return text.replace(/&[a-zA-Z0-9#]+;/g, (match) => {
-    if (entities[match]) return entities[match];
-    if (match.startsWith("&#x")) {
-      const code = parseInt(match.slice(3, -1), 16);
-      return !isNaN(code) ? String.fromCharCode(code) : match;
-    }
-    if (match.startsWith("&#")) {
-      const code = parseInt(match.slice(2, -1), 10);
-      return !isNaN(code) ? String.fromCharCode(code) : match;
-    }
-    return match;
-  });
-}
-
-function htmlToCleanText(html) {
-  if (!html) return "";
-  let cleaned = html
-    .replace(/<head[\s\S]*?<\/head>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<h[1-2][^>]*>([\s\S]*?)<\/h[1-2]>/gi, "\n\n📖 $1\n\n")
-    .replace(/<h[3-6][^>]*>([\s\S]*?)<\/h[3-6]>/gi, "\n\n$1\n\n")
-    .replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "\n$1\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "\n• $1")
-    .replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, '\n"$1"\n')
-    .replace(/<[^>]+>/g, "");
-
-  cleaned = decodeHtmlEntities(cleaned);
-  return cleaned
-    .replace(/\r\n/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function paginateText(text, charsPerPage = 1100) {
-  if (!text || text.length <= charsPerPage) {
-    return text ? [text] : [];
-  }
-  const pages = [];
-  const paragraphs = text.split("\n\n");
-  let currentPage = "";
-
-  for (const para of paragraphs) {
-    const trimmed = para.trim();
-    if (!trimmed) continue;
-    if ((currentPage + "\n\n" + trimmed).length > charsPerPage && currentPage.length > 250) {
-      pages.push(currentPage.trim());
-      currentPage = trimmed;
-    } else {
-      currentPage = currentPage ? currentPage + "\n\n" + trimmed : trimmed;
-    }
-  }
-  if (currentPage.trim()) {
-    pages.push(currentPage.trim());
-  }
-  return pages.length > 0 ? pages : [text];
-}
-
-async function parseEpubFromBase64(base64Data, defaultTitle = "Libro EPUB") {
-  try {
-    const zip = await JSZip.loadAsync(base64Data, { base64: true });
-    const containerFile = zip.file("META-INF/container.xml") || zip.file("meta-inf/container.xml");
-    if (!containerFile) throw new Error("No es un archivo EPUB válido");
-
-    const containerXml = await containerFile.async("string");
-    const rootFileMatch = containerXml.match(/full-path=["']([^"']+)["']/i);
-    const opfPath = rootFileMatch ? rootFileMatch[1] : "content.opf";
-    const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf("/") + 1) : "";
-
-    const opfFile = zip.file(opfPath);
-    if (!opfFile) throw new Error("No se encontró el manifiesto OPF");
-
-    const opfContent = await opfFile.async("string");
-    const titleMatch = opfContent.match(/<dc:title[^>]*>([\s\S]*?)<\/dc:title>/i);
-    const authorMatch = opfContent.match(/<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/i);
-    const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : defaultTitle;
-    const author = authorMatch ? decodeHtmlEntities(authorMatch[1].trim()) : "Autor desconocido";
-
-    const manifest = {};
-    const itemRegex = /<item\s+[^>]*?id=["']([^"']+)["'][^>]*?href=["']([^"']+)["'][^>]*?>|<item\s+[^>]*?href=["']([^"']+)["'][^>]*?id=["']([^"']+)["'][^>]*?>/gi;
-    let match;
-    while ((match = itemRegex.exec(opfContent)) !== null) {
-      const id = match[1] || match[4];
-      const href = decodeURIComponent(match[2] || match[3]);
-      const fullPath = opfDir ? (href.startsWith(opfDir) ? href : opfDir + href) : href;
-      manifest[id] = fullPath;
-    }
-
-    // Buscar portada
-    let coverBase64 = null;
-    let coverFileId = null;
-    const metaCoverMatch = opfContent.match(/<meta\s+name=["']cover["']\s+content=["']([^"']+)["']/i);
-    if (metaCoverMatch) {
-      coverFileId = metaCoverMatch[1];
-    }
-    if (!coverFileId) {
-      for (const id in manifest) {
-        if (/cover/i.test(id) && /\.(jpe?g|png|webp)$/i.test(manifest[id])) {
-          coverFileId = id;
-          break;
-        }
-      }
-    }
-    if (coverFileId && manifest[coverFileId]) {
-      const coverPath = manifest[coverFileId];
-      const coverZipFile = zip.file(coverPath) || zip.file(coverPath.replace(/^\//, ""));
-      if (coverZipFile) {
-        const rawImg = await coverZipFile.async("base64");
-        const mime = coverPath.endsWith(".png") ? "image/png" : "image/jpeg";
-        coverBase64 = `data:${mime};base64,${rawImg}`;
-      }
-    }
-
-    // Orden de capítulos
-    const spineItems = [];
-    const spineRegex = /<itemref\s+[^>]*?idref=["']([^"']+)["'][^>]*?>/gi;
-    while ((match = spineRegex.exec(opfContent)) !== null) {
-      spineItems.push(match[1]);
-    }
-
-    const allPages = [];
-    for (const id of spineItems) {
-      const filePath = manifest[id];
-      if (!filePath) continue;
-      const chapterFile =
-        zip.file(filePath) ||
-        zip.file(filePath.replace(/^\//, "")) ||
-        zip.file(opfDir + filePath);
-      if (chapterFile) {
-        const rawHtml = await chapterFile.async("string");
-        const cleanText = htmlToCleanText(rawHtml);
-        if (cleanText && cleanText.length > 25) {
-          const chapterPages = paginateText(cleanText, 1100);
-          for (const p of chapterPages) {
-            allPages.push(p);
-          }
-        }
-      }
-    }
-
-    return {
-      title,
-      author,
-      cover: coverBase64,
-      pages: allPages.length > 0 ? allPages : [
-        `Capítulo 1\n\n${title}\n\nPor ${author}\n\nLibro procesado correctamente en tu dispositivo.`
-      ],
-      totalPages: allPages.length,
-    };
-  } catch (error) {
-    console.error("Error parseando EPUB:", error);
-    return {
-      title: defaultTitle,
-      author: "Autor local",
-      cover: null,
-      pages: [
-        `Lectura de ${defaultTitle}\n\nEl archivo se importó a la biblioteca. Si es un libro protegido con DRM comercial, algunos capítulos podrían no ser legibles directamente.`
-      ],
-      totalPages: 1,
-    };
-  }
-}
-
 /* ==========================================================================
    PALETA DE COLORES Y TEMAS
    ========================================================================== */
@@ -259,16 +56,16 @@ const COLORS = {
 };
 
 /* ==========================================================================
-   DATOS INICIALES (Libros clásicos con portadas reales y lectura completa)
+   DATOS INICIALES (Muestras de lectura; no son libros completos)
    ========================================================================== */
 const INITIAL_BOOKS = [
   {
     id: "sample_principito",
-    name: "El Principito",
+    name: "El Principito · muestra",
     author: "Antoine de Saint-Exupéry",
     type: "epub",
     cover: "https://m.media-amazon.com/images/I/71OzywnN6yL._AC_UF1000,1000_QL80_.jpg",
-    progress: 45,
+    progress: 0,
     isFavorite: true,
     pages: [
       "Capítulo 1\n\nCuando yo tenía seis años vi en un libro sobre la selva virgen que se titulaba 'Historias vividas', una magnífica lámina. Representaba una serpiente boa que se tragaba a una fiera.\n\nEl libro decía: 'Las serpientes boas tragan sus presas enteras, sin masticarlas. Luego no pueden moverse y duermen durante los seis meses que dura su digestión.'\n\nReflexioné mucho entonces sobre las aventuras de la selva y, a mi vez, logré trazar con un lápiz de color mi primer dibujo. Mi dibujo número 1 era así: enseñé mi obra de arte a las personas mayores y les pregunté si mi dibujo les daba miedo.\n\nEllas me respondieron: '¿Por qué habría de dar miedo un sombrero?'. Mi dibujo no representaba un sombrero. Representaba una serpiente boa que digería un elefante. Dibujé entonces el interior de la serpiente boa a fin de que las personas mayores pudieran comprender. Siempre necesitan explicaciones.",
@@ -281,11 +78,11 @@ const INITIAL_BOOKS = [
   },
   {
     id: "sample_1984",
-    name: "1984",
+    name: "1984 · muestra",
     author: "George Orwell",
     type: "epub",
     cover: "https://m.media-amazon.com/images/I/71kxa1-0mfL._AC_UF1000,1000_QL80_.jpg",
-    progress: 15,
+    progress: 0,
     isFavorite: true,
     pages: [
       "Parte 1 — Capítulo I\n\nEra un día luminoso y frío de abril y los relojes daban las trece. Winston Smith, con la barbilla clavada en el pecho para evitar el viento cortante, se deslizó rápidamente por las puertas de cristal de las Casas de la Victoria, aunque no con suficiente rapidez para evitar que un remolino de polvo arenoso entrara con él.\n\nEl vestíbulo olía a col hervida y a esteras viejas. Al fondo, un cartel de colores, demasiado grande para estar en el interior, estaba clavado en la pared. Representaba una enorme cara de más de un metro de ancho: la cara de un hombre de unos cuarenta y cinco años, con un espeso bigote negro y rasgos atractivos pero duros.\n\nWinston se dirigió a las escaleras. No valía la pena intentar tomar el ascensor. Incluso en las mejores épocas rara vez funcionaba y en aquellos momentos la corriente eléctrica permanecía cortada durante las horas del día. Formaba parte de la campaña de ahorro en preparación para la Semana del Odio.",
@@ -297,11 +94,11 @@ const INITIAL_BOOKS = [
   },
   {
     id: "sample_habitos",
-    name: "Hábitos atómicos",
+    name: "Hábitos atómicos · muestra",
     author: "James Clear",
     type: "epub",
     cover: "https://m.media-amazon.com/images/I/81i9o11+oSL._AC_UF1000,1000_QL80_.jpg",
-    progress: 80,
+    progress: 0,
     isFavorite: false,
     pages: [
       "Introducción: El poder del 1%\n\nEs tan fácil sobreestimar la importancia de un momento decisivo y subestimar el valor de hacer pequeñas mejoras a diario.\n\nCon frecuencia, nos convencemos de que un cambio enorme requiere una acción masiva. Ya sea perder peso, fundar una empresa, escribir un libro o ganar un campeonato, nos presionamos para lograr una mejora descomunal que todos comenten.\n\nSin embargo, mejorar un 1% cada día apenas se nota al principio; a veces ni siquiera se percibe. Pero a largo plazo, la diferencia es asombrosa:\n\nSi logras ser 1% mejor cada día durante un año, terminarás siendo 37 veces mejor al concluirlo. Por el contrario, si empeoras 1% cada día, terminarás prácticamente en cero.",
@@ -313,11 +110,11 @@ const INITIAL_BOOKS = [
   },
   {
     id: "sample_sapiens",
-    name: "Sapiens: De animales a dioses",
+    name: "Sapiens · muestra",
     author: "Yuval Noah Harari",
     type: "epub",
     cover: "https://m.media-amazon.com/images/I/713jIoMO3UL._AC_UF1000,1000_QL80_.jpg",
-    progress: 25,
+    progress: 0,
     isFavorite: false,
     pages: [
       "Primera parte: Un animal sin importancia\n\nHace unos 13.500 millones de años, la materia, la energía, el tiempo y el espacio tuvieron su origen en lo que se conoce como el Big Bang. El relato de estas características fundamentales de nuestro universo se llama física.\n\nHace unos 70.000 años, organismos pertenecientes a la especie Homo sapiens empezaron a formar estructuras todavía más complejas llamadas culturas. El desarrollo subsiguiente de estas culturas humanas se llama historia.\n\nLo más importante que hay que saber sobre los humanos prehistóricos es que eran animales insignificantes que no ejercían más impacto en su entorno que los gorilas, las luciérnagas o las medusas.",
@@ -342,20 +139,24 @@ async function loadStoredBooks() {
       return INITIAL_BOOKS;
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
+    if (!Array.isArray(parsed)) {
       return INITIAL_BOOKS;
     }
 
-    // Actualizar libros de muestra con contenido completo enriquecido
+    // Compatibilidad con muestras guardadas en versiones anteriores
     const merged = parsed.map((book) => {
       const sampleMatch = INITIAL_BOOKS.find((s) => s.id === book.id);
       if (sampleMatch && (!book.pages || book.pages.length < sampleMatch.pages.length)) {
-        return { ...book, pages: sampleMatch.pages, type: sampleMatch.type };
+        return { ...book, name: sampleMatch.name, pages: sampleMatch.pages, type: sampleMatch.type };
       }
-      return book;
+      return sampleMatch ? { ...book, name: sampleMatch.name } : book;
     });
 
-    return merged;
+    const states = await AsyncStorage.multiGet(merged.map(b => "reader:" + b.id));
+    return merged.map((book, i) => {
+      try { return { ...book, ...JSON.parse(states[i][1] || "{}") }; }
+      catch { return book; }
+    });
   } catch (e) {
     return INITIAL_BOOKS;
   }
@@ -365,7 +166,8 @@ async function saveAllBooks(books) {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(books));
   } catch (e) {
-    console.warn("Error guardando libros:", e);
+    Alert.alert("No se pudo guardar", "Revisa el espacio disponible e inténtalo de nuevo.");
+    throw e;
   }
 }
 
@@ -501,184 +303,7 @@ function BottomNavBar({ activeTab, navigation }) {
 /* ==========================================================================
    PANTALLA 1: INICIO / ONBOARDING (WelcomeScreen)
    ========================================================================== */
-function WelcomeScreen({ navigation }) {
-  return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.welcomeContainer}>
-        {/* Cabecera / Logo */}
-        <View style={styles.welcomeHeader}>
-          <Text style={{ fontSize: 52, marginBottom: 8 }}>📖</Text>
-          <Text style={styles.welcomeTitle}>Kindle Clone</Text>
-          <Text style={styles.welcomeSubtitle}>Tus libros, siempre contigo.</Text>
-        </View>
-
-        {/* Imagen / Ilustración atardecer */}
-        <View style={styles.welcomeHeroWrapper}>
-          <Image
-            source={require("./assets/welcome_hero.png")}
-            style={styles.welcomeHeroImage}
-            resizeMode="cover"
-          />
-        </View>
-
-        {/* Cita / Frase */}
-        <Text style={styles.welcomeQuote}>
-          Lee, descubre y guarda tus historias en un solo lugar.
-        </Text>
-
-        {/* Botones de acción */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Library")}
-          style={styles.btnPrimary}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.btnPrimaryText}>Comenzar</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Auth")}
-          style={styles.btnLink}
-          activeOpacity={0.6}
-        >
-          <Text style={styles.btnLinkText}>Iniciar sesión</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <BottomNavBar activeTab="Welcome" navigation={navigation} />
-    </SafeAreaView>
-  );
-}
-
-/* ==========================================================================
-   PANTALLA 2: INICIO DE SESIÓN / REGISTRO (AuthScreen)
-   ========================================================================== */
-function AuthScreen({ navigation }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleLogin = () => {
-    if (!email.trim()) {
-      Alert.alert("Atención", "Por favor ingresa tu correo electrónico.");
-      return;
-    }
-    Alert.alert("Bienvenido", `Sesión iniciada como ${email.trim()}`);
-    navigation.replace("Library");
-  };
-
-  const handleRegister = () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("Atención", "Completa tu correo y contraseña para registrarte.");
-      return;
-    }
-    Alert.alert("Cuenta creada", "Tu cuenta ha sido registrada con éxito.");
-    navigation.replace("Library");
-  };
-
-  return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }}>
-        {/* Botón Volver */}
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-
-        {/* Logo e Intro */}
-        <View style={{ alignItems: "center", marginVertical: 20 }}>
-          <Text style={{ fontSize: 50, marginBottom: 8 }}>📖</Text>
-          <Text style={styles.welcomeTitle}>Kindle Clone</Text>
-          <Text style={[styles.welcomeSubtitle, { marginTop: 6, textAlign: "center" }]}>
-            Inicia sesión o crea una cuenta para continuar
-          </Text>
-        </View>
-
-        {/* Input Correo */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputIcon}>✉️</Text>
-          <TextInput
-            placeholder="Correo electrónico"
-            placeholderTextColor={COLORS.textMuted}
-            style={styles.inputField}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-        </View>
-
-        {/* Input Contraseña con Toggle */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputIcon}>🔒</Text>
-          <TextInput
-            placeholder="Contraseña"
-            placeholderTextColor={COLORS.textMuted}
-            secureTextEntry={!showPassword}
-            style={styles.inputField}
-            value={password}
-            onChangeText={setPassword}
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 8 }}>
-            <Text style={{ fontSize: 16 }}>{showPassword ? "👁️" : "👁️‍🗨️"}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Botón Entrar */}
-        <TouchableOpacity onPress={handleLogin} style={styles.btnPrimary} activeOpacity={0.8}>
-          <Text style={styles.btnPrimaryText}>Entrar</Text>
-        </TouchableOpacity>
-
-        {/* Olvidaste contraseña */}
-        <TouchableOpacity
-          onPress={() => Alert.alert("Recuperar", "Se enviará un correo de recuperación.")}
-          style={{ marginTop: 14, alignItems: "center" }}
-        >
-          <Text style={{ color: COLORS.accentLight, fontSize: 13, fontWeight: "600" }}>
-            ¿Olvidaste tu contraseña?
-          </Text>
-        </TouchableOpacity>
-
-        {/* Divisor */}
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>o</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Botón Crear cuenta */}
-        <TouchableOpacity onPress={handleRegister} style={styles.btnSecondary} activeOpacity={0.8}>
-          <Text style={styles.btnSecondaryText}>Crear cuenta</Text>
-        </TouchableOpacity>
-
-        {/* Modo Invitado */}
-        <TouchableOpacity
-          onPress={() => navigation.replace("Library")}
-          style={[styles.btnSecondary, { marginTop: 12, borderColor: COLORS.accent }]}
-          activeOpacity={0.8}
-        >
-          <Text style={{ color: COLORS.accentLight, fontWeight: "700" }}>
-            📖 Continuar sin cuenta (Modo Local)
-          </Text>
-        </TouchableOpacity>
-
-        {/* Footer legal */}
-        <Text style={styles.legalFooter}>
-          Términos y Condiciones | Política de Privacidad
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-/* ==========================================================================
-   PANTALLA 3: BIBLIOTECA DE LIBROS (LibraryScreen)
-   ========================================================================== */
-function LibraryScreen({ navigation }) {
+function LibraryScreen({ navigation, route }) {
   const [books, setBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all"); // 'all', 'pdf', 'epub'
@@ -691,12 +316,18 @@ function LibraryScreen({ navigation }) {
     return unsub;
   }, [navigation]);
 
+  useEffect(() => {
+    setFilterType(route.params?.filter || "all");
+  }, [route.params?.filter]);
+
   // Filtrado por formato y búsqueda
   const filteredBooks = books.filter((b) => {
     const matchesQuery =
       (b.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (b.author || "").toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesQuery) return false;
+    if (filterType === "favorites") return b.isFavorite;
+    if (filterType === "history") return !!b.progress;
     if (filterType === "pdf") return (b.type || "").toLowerCase() === "pdf";
     if (filterType === "epub") return (b.type || "").toLowerCase() === "epub";
     return true;
@@ -853,6 +484,7 @@ function UploadScreen({ navigation }) {
       }
 
       const { name, uri } = res;
+      if (!/\.(pdf|epub)$/i.test(name || "")) throw new Error("Selecciona un archivo PDF o EPUB.");
       const isPdf = name.toLowerCase().endsWith(".pdf");
       const bookId = "book_" + Date.now();
 
@@ -887,16 +519,21 @@ function UploadScreen({ navigation }) {
             extractedPages = parsed.pages;
           }
         } catch (epubErr) {
-          console.log("Error extrayendo EPUB:", epubErr);
+          await FileSystem.deleteAsync(permanentUri, { idempotent: true });
+          throw epubErr;
         }
       }
 
-      // Si no tiene portada extraída del EPUB, buscar en Google Books
-      if (!detectedCover) {
-        setUploadStatus("Buscando portada oficial...");
-        detectedCover = await fetchCoverForTitle(bookTitle);
+      let contentUri = null;
+      if (!isPdf) {
+        contentUri = booksDir + bookId + ".json";
+        await FileSystem.writeAsStringAsync(contentUri, JSON.stringify(extractedPages));
       }
-
+      if (detectedCover?.startsWith("data:")) {
+        const coverUri = booksDir + bookId + ".cover.jpg";
+        await FileSystem.writeAsStringAsync(coverUri, detectedCover.split(",")[1], { encoding: FileSystem.EncodingType.Base64 });
+        detectedCover = coverUri;
+      }
       const newBook = {
         id: bookId,
         name: bookTitle,
@@ -906,7 +543,8 @@ function UploadScreen({ navigation }) {
         cover: detectedCover,
         progress: 0,
         isFavorite: false,
-        pages: extractedPages,
+        contentUri,
+        pageCount: extractedPages.length,
       };
 
       const currentBooks = await loadStoredBooks();
@@ -950,6 +588,7 @@ function UploadScreen({ navigation }) {
 
         {/* Zona de arrastre / Dropzone */}
         <TouchableOpacity
+          disabled={uploading}
           onPress={handlePickDocument}
           style={styles.dropZoneCard}
           activeOpacity={0.8}
@@ -985,6 +624,7 @@ function UploadScreen({ navigation }) {
 
         {/* Botón Subir */}
         <TouchableOpacity
+          disabled={uploading}
           onPress={handlePickDocument}
           style={[styles.btnPrimary, { marginTop: 24 }]}
           activeOpacity={0.8}
@@ -1009,6 +649,9 @@ function UploadScreen({ navigation }) {
 function BookDetailScreen({ route, navigation }) {
   const { book } = route.params;
   const [currentBook, setCurrentBook] = useState(book);
+  useEffect(() => navigation.addListener("focus", () => {
+    loadStoredBooks().then(all => setCurrentBook(all.find(b => b.id === book.id) || book));
+  }), [navigation, book.id]);
 
   const toggleFavorite = async () => {
     const all = await loadStoredBooks();
@@ -1036,6 +679,13 @@ function BookDetailScreen({ route, navigation }) {
             const all = await loadStoredBooks();
             const updated = all.filter((b) => b.id !== currentBook.id);
             await saveAllBooks(updated);
+            await AsyncStorage.removeItem("reader:" + currentBook.id);
+            const ownedDir = FileSystem.documentDirectory + "books/";
+            for (const uri of [currentBook.url, currentBook.contentUri, currentBook.cover]) {
+              if (uri && uri.startsWith(ownedDir) && !uri.slice(ownedDir.length).includes("..")) {
+                await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+              }
+            }
             navigation.navigate("Library");
           },
         },
@@ -1046,7 +696,7 @@ function BookDetailScreen({ route, navigation }) {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Estoy leyendo "${currentBook.name}" de ${currentBook.author || "Autor"} en Kindle Clone.`,
+        message: `Estoy leyendo "${currentBook.name}" de ${currentBook.author || "Autor"} en Lector Libros.`,
       });
     } catch (e) {}
   };
@@ -1090,7 +740,7 @@ function BookDetailScreen({ route, navigation }) {
         <View style={{ alignItems: "center", marginBottom: 16 }}>
           <Text style={styles.detailBookTitle}>{currentBook.name}</Text>
           <Text style={styles.detailBookAuthor}>
-            {currentBook.author || "Antoine de Saint-Exupéry"}
+            {currentBook.author || "Autor desconocido"}
           </Text>
           <View
             style={[
@@ -1126,7 +776,7 @@ function BookDetailScreen({ route, navigation }) {
           style={styles.btnPrimary}
           activeOpacity={0.8}
         >
-          <Text style={styles.btnPrimaryText}>Continuar leyendo</Text>
+          <Text style={styles.btnPrimaryText}>{currentBook.previewUrl ? "Ver ficha y vista previa" : "Continuar leyendo"}</Text>
         </TouchableOpacity>
 
         {/* Acciones del libro */}
@@ -1162,410 +812,8 @@ function BookDetailScreen({ route, navigation }) {
 /* ==========================================================================
    PANTALLA 6, 7 & 10: LECTOR TIPO KINDLE CON ANIMACIÓN 3D Y SOPORTE PDF
    ========================================================================== */
-function ReaderScreen({ route, navigation }) {
-  const { book } = route.params;
-  const [page, setPage] = useState(0);
-  const [fontSize, setFontSize] = useState(17);
-  const [isDarkMode, setIsDarkMode] = useState(false); // false = Sepia (Screen 6), true = Dark (Screen 10)
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  const [isFlipping, setIsFlipping] = useState(false);
-
-  // Estados para PDF
-  const [pdfPage, setPdfPage] = useState(1);
-  const [totalPdfPages, setTotalPdfPages] = useState(1);
-  const [pdfLoading, setPdfLoading] = useState(true);
-  const [pdfError, setPdfError] = useState(null);
-
-  // Animación 3D para el paso de página (Screen 7 de la maqueta)
-  const panX = useRef(new Animated.Value(0)).current;
-
-  // Páginas del libro o fallback de lectura
-  const pages =
-    book.pages && book.pages.length > 0
-      ? book.pages
-      : [
-          `Capítulo 1\n\n${book.name}\n\nCuando yo tenía seis años vi en un libro sobre la selva virgen una magnífica lámina que representaba una serpiente boa.\n\nLas personas mayores nunca comprenden nada por sí solas y es agotador para los niños tener que darles explicaciones una y otra vez.\n\nTodos los planetas del universo esconden secretos fascinantes para quienes saben mirar con el corazón.`,
-        ];
-
-  const totalPages = pages.length;
-
-  const currentTheme = isDarkMode
-    ? {
-        bg: COLORS.darkBg,
-        text: COLORS.darkText,
-        border: COLORS.darkBorder,
-        topBar: "#090d16",
-        pageBg: "#0c1322",
-        curlShadow: "rgba(0,0,0,0.7)",
-      }
-    : {
-        bg: COLORS.sepiaBg,
-        text: COLORS.sepiaText,
-        border: COLORS.sepiaBorder,
-        topBar: "#f3e7cb",
-        pageBg: "#fbf0d9",
-        curlShadow: "rgba(60,35,10,0.35)",
-      };
-
-  // Guardar progreso en AsyncStorage
-  const updateProgress = async (newPage, total = totalPages) => {
-    setPage(newPage);
-    try {
-      const calcProgress = Math.min(100, Math.round(((newPage + 1) / Math.max(1, total)) * 100));
-      const all = await loadStoredBooks();
-      const updated = all.map((b) =>
-        b.id === book.id ? { ...b, progress: calcProgress } : b
-      );
-      await saveAllBooks(updated);
-    } catch (e) {}
-  };
-
-  // Transición animada de cambio de página (Screen 7)
-  const triggerPageTurn = (direction) => {
-    if (isFlipping) return;
-    if (direction === 1 && page >= totalPages - 1) return;
-    if (direction === -1 && page <= 0) return;
-
-    setIsFlipping(true);
-    // 1. Doblar la página hacia afuera
-    Animated.timing(panX, {
-      toValue: direction === 1 ? -SCREEN_WIDTH * 0.75 : SCREEN_WIDTH * 0.75,
-      duration: 240,
-      useNativeDriver: true,
-    }).start(() => {
-      const nextP = direction === 1 ? page + 1 : page - 1;
-      updateProgress(nextP);
-      // 2. Colocar la nueva página doblada desde el lado opuesto y desdoblarla
-      panX.setValue(direction === 1 ? SCREEN_WIDTH * 0.45 : -SCREEN_WIDTH * 0.45);
-      Animated.timing(panX, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        setIsFlipping(false);
-      });
-    });
-  };
-
-  // PanResponder táctil para arrastrar la hoja con el dedo
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (evt, gestureState) =>
-        Math.abs(gestureState.dx) > 12 && Math.abs(gestureState.dy) < 35,
-      onPanResponderMove: (evt, gestureState) => {
-        if (gestureState.dx < 0 && page >= totalPages - 1) {
-          panX.setValue(gestureState.dx * 0.2);
-        } else if (gestureState.dx > 0 && page <= 0) {
-          panX.setValue(gestureState.dx * 0.2);
-        } else {
-          panX.setValue(gestureState.dx);
-        }
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const threshold = 60;
-        if (gestureState.dx < -threshold && page < totalPages - 1) {
-          triggerPageTurn(1);
-        } else if (gestureState.dx > threshold && page > 0) {
-          triggerPageTurn(-1);
-        } else if (Math.abs(gestureState.dx) < 8 && Math.abs(gestureState.dy) < 8) {
-          // Toque simple
-          const touchX = evt.nativeEvent.locationX;
-          if (touchX > SCREEN_WIDTH * 0.75 && page < totalPages - 1) {
-            triggerPageTurn(1);
-          } else if (touchX < SCREEN_WIDTH * 0.25 && page > 0) {
-            triggerPageTurn(-1);
-          } else {
-            setShowControls((prev) => !prev);
-          }
-        } else {
-          Animated.spring(panX, {
-            toValue: 0,
-            friction: 7,
-            tension: 40,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
-  // Interpolaciones para efecto 3D de hoja física (Screen 7)
-  const rotateY = panX.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-    outputRange: ["-60deg", "0deg", "60deg"],
-    extrapolate: "clamp",
-  });
-
-  const translateX = panX.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-    outputRange: [-SCREEN_WIDTH * 0.35, 0, SCREEN_WIDTH * 0.35],
-    extrapolate: "clamp",
-  });
-
-  const pageScale = panX.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-    outputRange: [0.93, 1, 0.93],
-    extrapolate: "clamp",
-  });
-
-  const curlShadowOpacity = panX.interpolate({
-    inputRange: [-SCREEN_WIDTH, -40, 0, 40, SCREEN_WIDTH],
-    outputRange: [0.4, 0.2, 0, 0.2, 0.4],
-    extrapolate: "clamp",
-  });
-
-  // Si es un archivo PDF nativo local
-  if (book.type === "pdf" && book.url) {
-    return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: currentTheme.bg }]}>
-        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-
-        {/* Cabecera del lector PDF */}
-        <View style={[styles.readerTopBar, { backgroundColor: currentTheme.topBar, borderBottomColor: currentTheme.border }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 6 }}>
-            <Text style={{ color: currentTheme.text, fontSize: 18, fontWeight: "700" }}>←</Text>
-          </TouchableOpacity>
-          <Text style={[styles.readerTopTitle, { color: currentTheme.text }]} numberOfLines={1}>
-            {book.name}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)} style={{ paddingHorizontal: 8 }}>
-              <Text style={{ fontSize: 18 }}>{isDarkMode ? "☀️" : "🌙"}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Visor PDF con estado de carga y error */}
-        <View style={{ flex: 1, backgroundColor: currentTheme.bg }}>
-          {pdfLoading && (
-            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 10 }}>
-              <ActivityIndicator size="large" color={COLORS.accentLight} />
-              <Text style={{ color: currentTheme.text, marginTop: 12, fontSize: 14 }}>Cargando PDF...</Text>
-            </View>
-          )}
-
-          {pdfError ? (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-              <Text style={{ fontSize: 40, marginBottom: 12 }}>⚠️</Text>
-              <Text style={{ color: currentTheme.text, fontSize: 17, fontWeight: "700", textAlign: "center" }}>
-                No se pudo renderizar el PDF
-              </Text>
-              <Text style={{ color: COLORS.textMuted, fontSize: 13, textAlign: "center", marginVertical: 8 }}>
-                {pdfError}
-              </Text>
-              <TouchableOpacity
-                onPress={() => { setPdfError(null); setPdfLoading(true); }}
-                style={[styles.btnPrimary, { marginTop: 16, width: 160 }]}
-              >
-                <Text style={styles.btnPrimaryText}>Reintentar</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Pdf
-              source={{ uri: book.url, cache: true }}
-              style={{ flex: 1, backgroundColor: currentTheme.bg }}
-              horizontal
-              enablePaging
-              page={pdfPage}
-              onLoadComplete={(numberOfPages) => {
-                setTotalPdfPages(numberOfPages);
-                setPdfLoading(false);
-              }}
-              onPageChanged={(p, total) => {
-                setPdfPage(p);
-                setTotalPdfPages(total);
-                updateProgress(p - 1, total);
-              }}
-              onError={(err) => {
-                console.log("PDF error:", err);
-                setPdfError(err?.message || "Error al leer las páginas del archivo.");
-                setPdfLoading(false);
-              }}
-            />
-          )}
-        </View>
-
-        {/* Barra de navegación inferior completa para PDF */}
-        <View style={[styles.readerBottomBar, { backgroundColor: currentTheme.topBar, borderTopColor: currentTheme.border }]}>
-          <TouchableOpacity
-            onPress={() => setPdfPage((p) => Math.max(1, p - 1))}
-            disabled={pdfPage <= 1}
-            style={{ padding: 8, opacity: pdfPage <= 1 ? 0.3 : 1 }}
-          >
-            <Text style={{ color: currentTheme.text, fontWeight: "700", fontSize: 15 }}>◀ Ant</Text>
-          </TouchableOpacity>
-
-          <Text style={[styles.readerPageIndicator, { color: currentTheme.text }]}>
-            {pdfPage} / {totalPdfPages} ({Math.round((pdfPage / Math.max(1, totalPdfPages)) * 100)}%)
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => setPdfPage((p) => Math.min(totalPdfPages, p + 1))}
-            disabled={pdfPage >= totalPdfPages}
-            style={{ padding: 8, opacity: pdfPage >= totalPdfPages ? 0.3 : 1 }}
-          >
-            <Text style={{ color: currentTheme.text, fontWeight: "700", fontSize: 15 }}>Sig ▶</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Lector tipo Kindle con Animación 3D para EPUB / Texto
-  return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: currentTheme.bg }]}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-
-      {/* Cabecera del lector (ocultable con toque central) */}
-      {showControls && (
-        <View
-          style={[
-            styles.readerTopBar,
-            { backgroundColor: currentTheme.topBar, borderBottomColor: currentTheme.border },
-          ]}
-        >
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 6 }}>
-            <Text style={{ color: currentTheme.text, fontSize: 18, fontWeight: "700" }}>←</Text>
-          </TouchableOpacity>
-
-          <Text style={[styles.readerTopTitle, { color: currentTheme.text }]} numberOfLines={1}>
-            {book.name}
-          </Text>
-
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity
-              onPress={() => setIsBookmarked(!isBookmarked)}
-              style={{ paddingHorizontal: 6 }}
-            >
-              <Text style={{ fontSize: 17 }}>{isBookmarked ? "🔖" : "🏷️"}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setFontSize((s) => (s >= 24 ? 14 : s + 2))}
-              style={{ paddingHorizontal: 6 }}
-            >
-              <Text style={{ color: currentTheme.text, fontSize: 15, fontWeight: "700" }}>Aa</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setIsDarkMode(!isDarkMode)}
-              style={{ paddingHorizontal: 6 }}
-            >
-              <Text style={{ fontSize: 18 }}>{isDarkMode ? "☀️" : "🌙"}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* Área del lector con Animación 3D de Paso de Página (Screen 7) */}
-      <View style={{ flex: 1, position: "relative" }} {...panResponder.panHandlers}>
-        {/* Capa de la página siguiente que se asoma debajo del doblez */}
-        {page < totalPages - 1 && (
-          <View
-            style={[
-              StyleSheet.absoluteFillObject,
-              {
-                backgroundColor: currentTheme.pageBg,
-                paddingHorizontal: 24,
-                paddingVertical: 28,
-                opacity: 0.9,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.readerText,
-                { color: currentTheme.text, fontSize, opacity: 0.65 },
-              ]}
-              numberOfLines={20}
-            >
-              {pages[page + 1]}
-            </Text>
-          </View>
-        )}
-
-        {/* Hoja activa con animación 3D de giro (Screen 7 de la maqueta) */}
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFillObject,
-            {
-              backgroundColor: currentTheme.pageBg,
-              transform: [
-                { perspective: 1200 },
-                { translateX },
-                { rotateY },
-                { scale: pageScale },
-              ],
-              shadowColor: "#000",
-              shadowOffset: { width: -4, height: 4 },
-              shadowOpacity: 0.35,
-              shadowRadius: 8,
-              elevation: 8,
-            },
-          ]}
-        >
-          <ScrollView
-            contentContainerStyle={styles.readerContentWrapper}
-            showsVerticalScrollIndicator={false}
-          >
-            <Text style={[styles.readerText, { color: currentTheme.text, fontSize }]}>
-              {pages[page]}
-            </Text>
-          </ScrollView>
-
-          {/* Sombra realista de pliegue/doblez de página (Page Curl Shadow) */}
-          <Animated.View
-            style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              right: 0,
-              width: 30,
-              backgroundColor: currentTheme.curlShadow,
-              opacity: curlShadowOpacity,
-            }}
-          />
-        </Animated.View>
-      </View>
-
-      {/* Barra de progreso inferior y controles (ocultable con toque central) */}
-      {showControls && (
-        <View
-          style={[
-            styles.readerBottomBar,
-            { backgroundColor: currentTheme.topBar, borderTopColor: currentTheme.border },
-          ]}
-        >
-          <TouchableOpacity
-            onPress={() => triggerPageTurn(-1)}
-            disabled={page === 0 || isFlipping}
-            style={{ padding: 8, opacity: page === 0 ? 0.3 : 1 }}
-          >
-            <Text style={{ color: currentTheme.text, fontWeight: "700", fontSize: 15 }}>◀ Ant</Text>
-          </TouchableOpacity>
-
-          <View style={{ alignItems: "center" }}>
-            <Text style={[styles.readerPageIndicator, { color: currentTheme.text }]}>
-              Pág {page + 1} de {totalPages}
-            </Text>
-            <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>
-              {Math.round(((page + 1) / totalPages) * 100)}% completado
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => triggerPageTurn(1)}
-            disabled={page >= totalPages - 1 || isFlipping}
-            style={{ padding: 8, opacity: page >= totalPages - 1 ? 0.3 : 1 }}
-          >
-            <Text style={{ color: currentTheme.text, fontWeight: "700", fontSize: 15 }}>Sig ▶</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </SafeAreaView>
-  );
+function ReaderScreen(props) {
+  return <Reader {...props} />;
 }
 
 /* ==========================================================================
@@ -1576,27 +824,33 @@ function SearchScreen({ navigation }) {
   const [filterCategory, setFilterCategory] = useState("todo");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const requestId = useRef(0);
 
   const executeSearch = async (term = queryText) => {
     if (!term.trim()) return;
+    const id = ++requestId.current;
     setLoading(true);
     try {
       const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(
         term.trim()
       )}&maxResults=15`;
-      const res = await fetch(url);
+      const res = await fetch(url + (filterCategory === "ebooks" ? "&filter=ebooks" : filterCategory === "libros" ? "&printType=books" : ""));
+      if (!res.ok) throw new Error("El catálogo no está disponible");
       const data = await res.json();
-      setResults(data.items || []);
+      if (id === requestId.current) setResults(data.items || []);
     } catch (e) {
-      Alert.alert("Búsqueda", "Error conectando con la biblioteca online.");
+      if (id === requestId.current) {
+        setResults([]);
+        Alert.alert("Búsqueda", "No se pudo consultar el catálogo. Revisa tu conexión e inténtalo de nuevo.");
+      }
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    executeSearch("Dune");
-  }, []);
+    executeSearch();
+  }, [filterCategory]);
 
   const handleAddOnlineBook = async (item) => {
     const info = item.volumeInfo || {};
@@ -1609,12 +863,16 @@ function SearchScreen({ navigation }) {
       progress: 0,
       isFavorite: false,
       pages: [
-        `Vista previa: ${info.title}\n\n${info.description || "Sin descripción disponible."}`,
+        `Ficha del catálogo (no es el libro completo): ${info.title}\n\n${info.description || "Sin descripción disponible."}`,
       ],
-      url: info.previewLink || info.infoLink,
+      previewUrl: info.previewLink || info.infoLink,
     };
 
     const current = await loadStoredBooks();
+    if (current.some(b => b.id === newBook.id)) {
+      navigation.navigate("BookDetail", { book: current.find(b => b.id === newBook.id) });
+      return;
+    }
     await saveAllBooks([newBook, ...current]);
     Alert.alert("Agregado", `"${newBook.name}" se guardó en tu biblioteca.`);
     navigation.navigate("BookDetail", { book: newBook });
@@ -1657,8 +915,7 @@ function SearchScreen({ navigation }) {
         {[
           { key: "todo", label: "Todo" },
           { key: "libros", label: "Libros" },
-          { key: "articulos", label: "Artículos" },
-          { key: "web", label: "Web" },
+          { key: "ebooks", label: "E-books" },
         ].map((c) => (
           <TouchableOpacity
             key={c.key}
@@ -1682,6 +939,7 @@ function SearchScreen({ navigation }) {
         <ActivityIndicator color={COLORS.accentLight} size="large" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
+          ListEmptyComponent={<Text style={{ color: COLORS.textMuted, padding: 24, textAlign: "center" }}>No hay resultados. Prueba otro título o autor.</Text>}
           data={results}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
@@ -1709,7 +967,7 @@ function SearchScreen({ navigation }) {
                     {(info.authors || ["Autor desconocido"]).join(", ")}
                   </Text>
                   <Text style={styles.searchResultMeta}>
-                    Libro · {info.publishedDate ? info.publishedDate.substring(0, 4) : "2020"}
+                    Ficha de catálogo · {info.publishedDate ? info.publishedDate.substring(0, 4) : "Sin fecha"}
                   </Text>
                 </View>
                 <Text style={{ fontSize: 20, color: COLORS.accentLight }}>＋</Text>
@@ -1734,11 +992,11 @@ function ProfileScreen({ navigation }) {
 
   const menuItems = [
     { key: "books", label: "Mis libros", icon: "📖", action: () => navigation.navigate("Library") },
-    { key: "downloads", label: "Descargas", icon: "⬇️", action: () => Alert.alert("Descargas", "Todos tus libros están disponibles sin conexión.") },
-    { key: "favs", label: "Favoritos", icon: "❤️", action: () => navigation.navigate("Library") },
-    { key: "history", label: "Historial de lectura", icon: "🕒", action: () => navigation.navigate("Library") },
-    { key: "settings", label: "Configuración", icon: "⚙️", action: () => Alert.alert("Configuración", "Versión 2.0.0 - Lector Libros.") },
-    { key: "logout", label: "Cerrar sesión", icon: "🚪", isDanger: true, action: () => navigation.replace("Welcome") },
+    { key: "downloads", label: "Descargas", icon: "⬇️", action: () => Alert.alert("Descargas", "Los PDF y EPUB importados se guardan en este dispositivo. La búsqueda y las vistas previas online requieren internet.") },
+    { key: "favs", label: "Favoritos", icon: "❤️", action: () => navigation.navigate("Library", { filter: "favorites" }) },
+    { key: "history", label: "Historial de lectura", icon: "🕒", action: () => navigation.navigate("Library", { filter: "history" }) },
+    { key: "settings", label: "Configuración", icon: "⚙️", action: () => Alert.alert("Configuración", "Lector Libros 2.1. Los ajustes de tema, letra y animación están dentro del lector y se guardan en este dispositivo.") },
+
   ];
 
   return (
@@ -1749,7 +1007,7 @@ function ProfileScreen({ navigation }) {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Text style={styles.libraryTitle}>Mi Perfil</Text>
           <TouchableOpacity
-            onPress={() => Alert.alert("Ajustes", "Configuración general")}
+            onPress={() => Alert.alert("Ajustes", "Dentro del lector puedes ajustar el tema, la letra y la animación.")}
             style={{ padding: 6 }}
           >
             <Text style={{ fontSize: 20 }}>⚙️</Text>
@@ -1762,8 +1020,8 @@ function ProfileScreen({ navigation }) {
             <Text style={{ fontSize: 34 }}>👤</Text>
           </View>
           <View style={{ marginLeft: 16 }}>
-            <Text style={styles.profileName}>Usuario Demo</Text>
-            <Text style={styles.profileEmail}>usuario@ejemplo.com</Text>
+            <Text style={styles.profileName}>Lector local</Text>
+            <Text style={styles.profileEmail}>Biblioteca en este dispositivo</Text>
             <Text style={styles.profileBadge}>{totalBooks} libros en biblioteca</Text>
           </View>
         </View>
@@ -1809,13 +1067,11 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer>
+      <SafeAreaProvider><NavigationContainer>
         <Stack.Navigator
-          initialRouteName="Welcome"
+          initialRouteName="Library"
           screenOptions={{ headerShown: false, animation: "fade" }}
         >
-          <Stack.Screen name="Welcome" component={WelcomeScreen} />
-          <Stack.Screen name="Auth" component={AuthScreen} />
           <Stack.Screen name="Library" component={LibraryScreen} />
           <Stack.Screen name="Upload" component={UploadScreen} />
           <Stack.Screen name="BookDetail" component={BookDetailScreen} />
@@ -1823,7 +1079,7 @@ export default function App() {
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
         </Stack.Navigator>
-      </NavigationContainer>
+      </NavigationContainer></SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

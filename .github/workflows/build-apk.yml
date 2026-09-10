@@ -1,4 +1,4 @@
-name: Generar APK de Android (Lector Libros v2.0)
+name: Generar APK de Android (Lector Libros v2.1)
 
 on:
   push:
@@ -38,7 +38,10 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "platforms;android-33" "build-tools;34.0.0" "ndk;23.1.7779620" "cmake;3.22.1"
 
       - name: Instalar dependencias del proyecto
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
+
+      - name: Validar lector y EPUB
+        run: npm test
 
       - name: Permisos de ejecucion para Gradle
         run: chmod +x ./android/gradlew
@@ -63,10 +66,10 @@ jobs:
           find android/app/build/outputs/apk/ -name "*.apk" -type f -exec cp {} apk_output/ \;
           
           if [ -f apk_output/app-release.apk ]; then
-            cp apk_output/app-release.apk apk_output/LectorLibros-v2.0.apk
+            cp apk_output/app-release.apk apk_output/LectorLibros-v2.1.apk
             cp apk_output/app-release.apk apk_output/LectorLibros.apk
           elif [ -f apk_output/app-debug.apk ]; then
-            cp apk_output/app-debug.apk apk_output/LectorLibros-v2.0.apk
+            cp apk_output/app-debug.apk apk_output/LectorLibros-v2.1.apk
             cp apk_output/app-debug.apk apk_output/LectorLibros.apk
           fi
           
@@ -76,7 +79,7 @@ jobs:
       - name: Subir APK como artefacto de descarga
         uses: actions/upload-artifact@v4
         with:
-          name: LectorLibros-v2.0-APK
+          name: LectorLibros-v2.1-APK
           path: apk_output/*.apk
           if-no-files-found: error
           retention-days: 30
@@ -85,13 +88,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.0.${{ github.run_number }}
-          name: Lector Libros v2.0.${{ github.run_number }}
+          tag_name: v2.1.${{ github.run_number }}
+          name: Lector Libros v2.1.${{ github.run_number }}
           body: |
-            ### 📱 Lector Libros v2.0 (Kindle Clone) para Android
+            ### 📱 Lector Libros v2.1 (Kindle Clone) para Android
             ¡Tu aplicación ya está lista para instalar!
             
-            Descarga directamente el archivo **`LectorLibros-v2.0.apk`** que aparece abajo en los archivos adjuntos (Assets) e instálalo en tu celular Android.
+            Descarga directamente el archivo **`LectorLibros-v2.1.apk`** que aparece abajo en los archivos adjuntos (Assets) e instálalo en tu celular Android.
           files: apk_output/*.apk
           draft: false
           prerelease: false
