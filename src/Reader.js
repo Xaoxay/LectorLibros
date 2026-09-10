@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Linking, Modal, PanResponder, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +36,9 @@ export default function Reader({ route, navigation }) {
   const [retry, setRetry] = useState(0);
   const drag = useRef(new Animated.Value(0)).current;
   const lock = useRef(false);
+  const committing = useRef(false);
+  const gestureX = useRef(0);
+  const animationId = useRef(0);
   const alive = useRef(true);
   const scroll = useRef(null);
   const pdfRef = useRef(null);
@@ -85,27 +88,46 @@ export default function Reader({ route, navigation }) {
     scroll.current?.scrollTo({ y: 0, animated: false });
     setPanel(null);
   };
-  const resetDrag = () => Animated.spring(drag, { toValue: 0, stiffness: 240, damping: 28, mass: 1, useNativeDriver: true }).start();
+  const resetDrag = () => {
+    if (lock.current) return;
+    lock.current = true;
+    Animated.spring(drag, { toValue: 0, stiffness: 240, damping: 28, mass: 1, useNativeDriver: true }).start(() => {
+      gestureX.current = 0;
+      lock.current = false;
+    });
+  };
+  useLayoutEffect(() => {
+    if (!committing.current) return;
+    // Reset the translated sheets only after React commits the destination text.
+    drag.setValue(0);
+    gestureX.current = 0;
+    committing.current = false;
+    lock.current = false;
+    scroll.current?.scrollTo({ y: 0, animated: false });
+    setBusy(false);
+  }, [page]);
   const turn = dir => {
     const current = latest.current;
     const target = current.page + dir;
-    if (lock.current || loading || target < 0 || target >= current.total) { resetDrag(); return; }
+    if (lock.current || loading) return;
+    if (target < 0 || target >= current.total) { resetDrag(); return; }
     setDirection(dir);
     if (pdf || reduced || !settings.motion) { drag.setValue(0); goTo(target); return; }
     lock.current = true;
     setBusy(true);
-    Animated.timing(drag, { toValue: -dir * width, duration: 290, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
-      if (!alive.current) return;
+    const token = ++animationId.current;
+    const distance = Math.abs(-dir * width - gestureX.current);
+    Animated.timing(drag, { toValue: -dir * width, duration: Math.max(100, 280 * distance / width), easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+      if (!alive.current || token !== animationId.current) return;
       if (finished) {
+        committing.current = true;
         setPage(target);
-        scroll.current?.scrollTo({ y: 0, animated: false });
-      }
-      // Wait for the new text to be committed before uncovering the active sheet.
-      requestAnimationFrame(() => {
+      } else {
         drag.setValue(0);
+        gestureX.current = 0;
         lock.current = false;
-        if (alive.current) setBusy(false);
-      });
+        setBusy(false);
+      }
     });
   };
   latest.current = { page, total, turn, width, reduced, motion: settings.motion };
@@ -113,7 +135,9 @@ export default function Reader({ route, navigation }) {
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, g) => !lock.current && Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
     onPanResponderMove: (_, g) => {
+      if (lock.current) return;
       const current = latest.current;
+      gestureX.current = g.dx;
       const dir = g.dx < 0 ? 1 : -1;
       setDirection(dir);
       const edge = current.page + dir < 0 || current.page + dir >= current.total;
@@ -126,7 +150,7 @@ export default function Reader({ route, navigation }) {
     onPanResponderTerminate: resetDrag,
     onPanResponderTerminationRequest: () => true,
   }), []);
-  useEffect(() => { drag.stopAnimation(); drag.setValue(0); lock.current = false; setBusy(false); }, [width]);
+  useEffect(() => { animationId.current += 1; drag.stopAnimation(); drag.setValue(0); lock.current = false; setBusy(false); }, [width]);
   const results = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return needle ? pages.map((text, index) => ({ text, index })).filter(p => p.text.toLocaleLowerCase().includes(needle)) : [];
@@ -150,8 +174,8 @@ export default function Reader({ route, navigation }) {
       {error ? <View style={styles.empty}><Text style={{ color: palette.text }}>{error}</Text>{button('Reintentar', () => { setError(''); setLoading(true); setRetry(v => v + 1); })}</View> : <Pdf key={retry} ref={pdfRef} source={{ uri: book.url, cache: true }} trustAllCerts={false} page={page + 1} horizontal enablePaging style={{ flex: 1, backgroundColor: palette.paper }} onLoadComplete={count => { setTotal(count); setPage(p => Math.min(p, count - 1)); setLoading(false); }} onPageChanged={(p, count) => { if (!loading) setPage(p - 1); setTotal(count); }} onError={() => { setError('No se pudo abrir el PDF. Comprueba que sea válido y que no requiera contraseña.'); setLoading(false); }} />}
       {loading && !error && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.empty]}><ActivityIndicator color={palette.accent} /><Text style={{ color: palette.text }}>Abriendo PDF…</Text></View>}
     </View> : total ? <View style={{ flex: 1, overflow: 'hidden', backgroundColor: palette.paper }} {...responder.panHandlers}>
-      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFillObject, styles.paper, { backgroundColor: palette.paper }]}><Text style={textStyle}>{underneath}</Text></View>
-      <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.paper, transform: [{ perspective: 1500 }, { translateX: drag }, { rotateY: drag.interpolate({ inputRange: [-width, 0, width], outputRange: ['-18deg', '0deg', '18deg'], extrapolate: 'clamp' }) }], shadowColor: '#000', shadowOpacity: 0.24, shadowRadius: 18, elevation: 5 }]}>
+      <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.paper, transform: [{ translateX: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [direction * width - width, direction * width, direction * width + width] }) }] }]}><View style={styles.paper}><Text style={textStyle}>{underneath}</Text></View></Animated.View>
+      <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.paper, transform: [{ translateX: drag }] }]}>
         <ScrollView ref={scroll} contentContainerStyle={styles.paper} showsVerticalScrollIndicator><Text selectable style={textStyle}>{pages[page]}</Text></ScrollView>
         <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, [direction === 1 ? 'right' : 'left']: 0, width: 16, backgroundColor: palette.accent, opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.12, 0, 0.12] }) }} />
       </Animated.View>
@@ -170,7 +194,7 @@ export default function Reader({ route, navigation }) {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 18, gap: 12 }}>
           {panel === 'settings' && <>
             <Text style={{ color: palette.muted }}>APARIENCIA</Text><View style={styles.row}>{Object.keys(themes).map(t => <React.Fragment key={t}>{button(`${settings.theme === t ? '✓ ' : ''}${{ sepia: 'Sepia', light: 'Claro', dark: 'Noche' }[t]}`, () => changeSettings({ theme: t }))}</React.Fragment>)}</View>
-            {!pdf && <><Text style={{ color: palette.muted }}>TAMAÑO DEL TEXTO · {settings.fontSize}</Text><View style={styles.row}>{button('A−', () => changeSettings({ fontSize: settings.fontSize - 2 }), settings.fontSize <= 14)}{button('A+', () => changeSettings({ fontSize: settings.fontSize + 2 }), settings.fontSize >= 30)}</View>{button(settings.motion && !reduced ? 'Animación de hoja: activada' : 'Animación de hoja: desactivada', () => changeSettings({ motion: !settings.motion }), reduced)}<Text style={{ color: palette.muted }}>Desliza horizontalmente para cambiar de página. Desplaza hacia arriba para leer textos largos.</Text></>}
+            {!pdf && <><Text style={{ color: palette.muted }}>TAMAÑO DEL TEXTO · {settings.fontSize}</Text><View style={styles.row}>{button('A−', () => changeSettings({ fontSize: settings.fontSize - 2 }), settings.fontSize <= 14)}{button('A+', () => changeSettings({ fontSize: settings.fontSize + 2 }), settings.fontSize >= 30)}</View>{button(settings.motion && !reduced ? 'Deslizamiento de páginas: activada' : 'Deslizamiento de páginas: desactivada', () => changeSettings({ motion: !settings.motion }), reduced)}<Text style={{ color: palette.muted }}>Desliza horizontalmente para cambiar de página. Desplaza hacia arriba para leer textos largos.</Text></>}
             {book.previewUrl && button('Abrir vista previa en el navegador', () => Linking.openURL(book.previewUrl).catch(() => setSaveError('No se pudo abrir la vista previa.')))}
           </>}
           {panel === 'jump' && <><Text style={{ color: palette.text }}>Número de página (1–{total})</Text><TextInput accessibilityLabel="Número de página" keyboardType="number-pad" value={jump} onChangeText={setJump} style={[styles.input, { color: palette.text, borderColor: palette.line }]} />{button('Ir a la página', () => goTo(Number(jump) - 1), !/^\d+$/.test(jump) || Number(jump) < 1 || Number(jump) > total)}</>}

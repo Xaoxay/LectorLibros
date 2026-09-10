@@ -1,16 +1,17 @@
-# Lector Libros 2.1
+# Lector Libros 2.2
 
-Lector personal para Android con biblioteca local, importación de PDF/EPUB y búsqueda de fichas en Google Books. Abre directamente la biblioteca; no requiere registro ni simula autenticación o sincronización en la nube.
+Lector personal para Android con biblioteca local, importación de PDF/EPUB y búsqueda en Gutenberg y Open Library. Abre directamente la biblioteca; no requiere registro ni simula autenticación o sincronización en la nube.
 
 ## Funciones
 
 - PDF nativo: paginación horizontal, zoom, salto de página, marcadores y recuperación de posición.
 - EPUB de texto sin DRM: lectura en orden del spine, extracción de portada, paginación sin perder párrafos largos y almacenamiento permanente en el dispositivo.
-- Paso de página con arrastre, perspectiva, sombra, cancelación del gesto y controles anterior/siguiente. Respeta la opción de reducir movimiento del sistema.
+- Paso de página lateral con dos hojas sincronizadas, cancelación del gesto y controles anterior/siguiente. La posición solo cambia al completar la transición; nuevos gestos no interrumpen el cambio en curso. Respeta la opción de reducir movimiento del sistema.
 - Temas claro, sepia y noche, tamaño de letra de 14 a 30, lectura inmersiva, índice por encabezados y búsqueda dentro del EPUB.
 - Posición exacta, porcentaje y marcadores persistentes por libro. Preferencias persistentes.
 - Biblioteca con búsqueda, filtros PDF/EPUB, favoritos e historial desde el perfil.
-- Google Books guarda fichas descriptivas; la vista previa disponible se abre en el navegador desde los ajustes del lector. Las fichas y muestras están identificadas y no se presentan como libros completos.
+- Buscador online: Gutenberg ofrece EPUB completos descargables; Open Library permite consultar títulos del catálogo general y su disponibilidad. Filtro de idioma, paginación, progreso y cancelación de descargas. Las descargas se incorporan a la biblioteca local sin duplicados; archivos fallidos se eliminan.
+- Los libros descargables se seleccionan según la marca de dominio público en EE.UU. del catálogo Gutenberg. La disponibilidad y los derechos pueden variar por país. No se ofrecen descargas ficticias ni se eluden DRM o préstamos.
 
 El contenido EPUB se guarda en archivos privados para evitar el límite de tamaño por registro de AsyncStorage. La importación y lectura local no requieren internet. Las portadas remotas, el catálogo y las vistas previas sí.
 
@@ -41,6 +42,9 @@ La firma actual es la firma de desarrollo heredada del proyecto. El APK sirve pa
 - `App.js`: biblioteca, importación, detalle, catálogo y perfil local.
 - `src/Reader.js`: lector PDF/EPUB, gestos, paneles y persistencia de lectura.
 - `src/epub.js`: extracción EPUB y utilidades de paginación.
+- `src/CatalogScreen.js`: búsqueda, filtros y descargas.
+- `src/catalog.js`: APIs de Gutendex y Open Library.
+- `src/downloadBook.js`: descarga transaccional y limpieza de archivos parciales.
 - `tests/`: pruebas de EPUB y del estado/interacciones del lector con módulos nativos simulados.
 
 ## Límites conocidos
@@ -48,3 +52,9 @@ La firma actual es la firma de desarrollo heredada del proyecto. El APK sirve pa
 EPUB usa extracción de texto, no maquetación editorial: no reproduce imágenes interiores, tablas complejas, CSS ni diseños fijos. Archivos DRM, EPUB sin texto y PDF protegidos por contraseña no están soportados. El índice se deriva de encabezados reconocidos. Los cambios de tamaño de letra mantienen estable el número de página y permiten desplazamiento vertical si el texto ocupa más espacio.
 
 Esta versión conserva dependencias antiguas de la base del proyecto. `npm audit` informa vulnerabilidades que requieren una actualización de plataforma planificada; no se aplican actualizaciones mayores automáticas que puedan romper los módulos nativos.
+
+## Verificación de 2.2
+
+21 pruebas automatizadas: gestos repetidos y transición interrumpida, persistencia PDF/EPUB, resultados de catálogo, descargas, duplicados, cancelación y limpieza ante errores. Prueba de red real con Cervantes: búsqueda en español y descarga/procesamiento de Don Quijote. Consulta real del catálogo general con Dune. Las pruebas de componentes simulan módulos nativos y no sustituyen la revisión visual en un teléfono Android.
+
+Fuentes: [Gutendex](https://gutendex.com/), [Open Library Search API](https://openlibrary.org/dev/docs/api/search). Para un despliegue de gran escala, Gutendex recomienda alojar una instancia propia; el servicio público puede tardar o no estar disponible. La app muestra errores recuperables y limita las descargas a 40 MB y 90 segundos.

@@ -7,11 +7,13 @@ const { create, act } = require('react-test-renderer');
 const babel = require('@babel/core');
 const store = new Map();
 let gesture;
+let deferAnimation = false;
+let animations = [];
 const Value = class { setValue() {} stopAnimation() {} interpolate() { return 0; } };
 const rn = Object.fromEntries(['ActivityIndicator','Modal','Pressable','ScrollView','StatusBar','Text','TextInput','View'].map(k => [k,k]));
 Object.assign(rn, {
  AccessibilityInfo: { isReduceMotionEnabled: async () => false, addEventListener: () => ({remove(){}}) },
- Animated: { Value, View: 'AnimatedView', timing: () => ({start: cb => cb?.({finished:true})}), spring: () => ({start: cb => cb?.({finished:true})}) },
+ Animated: { Value, View: 'AnimatedView', timing: () => ({start: cb => deferAnimation ? animations.push(cb) : cb?.({finished:true})}), spring: () => ({start: cb => cb?.({finished:true})}) },
  Easing: {out: x => x, cubic: x => x},
  Linking: {openURL: async () => {}},
  PanResponder: {create: config => { gesture = config; return {panHandlers:{}}; }},
@@ -89,5 +91,21 @@ test('reader uses stored theme and font size', async()=>{
  assert.equal(view.root.findByType('StatusBar').props.barStyle,'light-content');
  assert.ok(view.root.findAllByType('Text').some(n=>n.props.style?.fontSize===26));
  await press(view,'Página siguiente');assert.equal(state().page,1);
+ await act(async()=>view.unmount());
+});
+
+test('rapid gestures cannot interrupt an active page transition', async()=>{
+ store.clear();const view=await mount();deferAnimation=true;animations=[];
+ await press(view,'Página siguiente');
+ assert.equal(state().page,0);assert.equal(animations.length,1);
+ await act(async()=>{gesture.onPanResponderRelease({}, {dx:-150,vx:-1});await flush();});
+ assert.equal(animations.length,1);
+ await act(async()=>{animations.shift()({finished:true});await flush();});
+ assert.equal(state().page,1);
+ await press(view,'Página siguiente');
+ await act(async()=>{animations.shift()({finished:false});await flush();});
+ assert.equal(state().page,1);
+ deferAnimation=false;
+ await press(view,'Página siguiente');assert.equal(state().page,2);
  await act(async()=>view.unmount());
 });
