@@ -7,7 +7,7 @@ import { searchCatalog } from './catalog';
 import { downloadBook } from './downloadBook';
 import { parseEpubFromBase64 } from './epub';
 
-export default function CatalogScreen({ navigation, loadBooks, saveBooks }) {
+export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottomBar }) {
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
   const [source, setSource] = useState('free');
@@ -68,6 +68,7 @@ export default function CatalogScreen({ navigation, loadBooks, saveBooks }) {
       {item.cover ? <Image source={{ uri: item.cover }} style={styles.cover} /> : <View style={[styles.cover, { alignItems: 'center', justifyContent: 'center' }]}><Ionicons name="book-outline" size={32} color="#96a6bc" /></View>}
       <View style={{ flex: 1, gap: 6 }}><Text style={[styles.text, { fontWeight: '700', fontSize: 17 }]} numberOfLines={3}>{item.name}</Text><Text style={styles.muted} numberOfLines={2}>{item.author}</Text><Pressable accessibilityRole="button" disabled={!!download && !owned[item.id]} onPress={() => getBook(item)} style={[styles.action, { opacity: download && !owned[item.id] ? 0.45 : 1 }]}><Text style={{ color: '#0a172b', fontWeight: '700' }}>{owned[item.id] ? 'Abrir en biblioteca' : item.downloadUrl ? 'Descargar EPUB' : 'Ver disponibilidad'}</Text></Pressable></View>
     </View>} ListEmptyComponent={!loading && !error ? <View style={{ paddingVertical: 32 }}><Text style={styles.text}>No encontramos libros con esa búsqueda.</Text><Text style={styles.muted}>{source === 'free' ? 'Probá con el autor, quitá el filtro de idioma o consultá el catálogo general.' : 'Probá con otro título o autor.'}</Text></View> : null} ListFooterComponent={<View style={{ gap: 12, paddingVertical: 16 }}>{loading && <ActivityIndicator color="#9fc5ff" />}{!!error && <><Text accessibilityRole="alert" style={styles.text}>{error}</Text>{chip('Reintentar', false, () => run(submitted, books.length ? page + 1 : 1))}</>}{more && !loading && !error && chip('Ver más resultados', false, () => run(submitted, page + 1))}</View>} />
+    {bottomBar}
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({ root: { flex: 1, backgroundColor: '#0b1220' }, header: { flexDirection: 'row', alignItems: 'center', padding: 10 }, title: { color: '#edf3fc', fontSize: 25, fontWeight: '700' }, text: { color: '#e6edf7', fontSize: 15 }, muted: { color: '#a4b3c8', fontSize: 13, lineHeight: 19 }, icon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }, search: { margin: 16, marginTop: 8, backgroundColor: '#172337', borderRadius: 16, flexDirection: 'row', paddingLeft: 14 }, row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginBottom: 12 }, chip: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#1c2a40' }, selected: { backgroundColor: '#294f83' }, card: { flexDirection: 'row', gap: 14, backgroundColor: '#142035', borderRadius: 18, padding: 14 }, cover: { width: 78, height: 116, backgroundColor: '#233149', borderRadius: 7 }, action: { minHeight: 48, justifyContent: 'center', alignItems: 'center', padding: 10, borderRadius: 12, backgroundColor: '#a8ccff', marginTop: 4 }, banner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#21344f' } });

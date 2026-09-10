@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
+import { HIGHLIGHT_COLORS, createAnnotation, normalizeAnnotations, phraseOptions, textSegments } from './annotations';
 
 const themes = {
   sepia: { bg: '#F5ECD9', paper: '#FCF5E6', text: '#352C22', muted: '#74634E', line: '#DCCEAF', accent: '#855D2F' },
@@ -23,6 +24,12 @@ export default function Reader({ route, navigation }) {
   const [total, setTotal] = useState(pdf ? 0 : pages.length);
   const [settings, setSettings] = useState(defaults);
   const [marks, setMarks] = useState([]);
+  const [annotations, setAnnotations] = useState([]);
+  const [draftQuote, setDraftQuote] = useState('');
+  const [draftRange, setDraftRange] = useState(null);
+  const [draftNote, setDraftNote] = useState('');
+  const [draftColor, setDraftColor] = useState(HIGHLIGHT_COLORS[0]);
+  const [annotationMessage, setAnnotationMessage] = useState('');
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(!!pdf);
   const [error, setError] = useState('');
@@ -60,6 +67,7 @@ export default function Reader({ route, navigation }) {
         const saved = JSON.parse(prefs || '{}');
         setPage(Math.max(0, Math.min(Number.isInteger(state.page) ? state.page : 0, pdf ? Number.MAX_SAFE_INTEGER : Math.max(0, textPages.length - 1))));
         setMarks(Array.isArray(state.bookmarks) ? state.bookmarks.filter(Number.isInteger) : []);
+        setAnnotations(normalizeAnnotations(state.annotations));
         setSettings({ theme: themes[saved.theme] ? saved.theme : 'sepia', fontSize: Math.max(14, Math.min(30, Number(saved.fontSize) || 18)), motion: saved.motion !== false });
       }).catch(() => { if (alive.current) setSaveError('No se pudo recuperar la posición guardada.'); })
       .finally(() => { if (alive.current) setReady(true); });
@@ -70,11 +78,11 @@ export default function Reader({ route, navigation }) {
 
   useEffect(() => {
     if (!ready || !total || (pdf && loading)) return;
-    const state = { page, bookmarks: marks, progress: Math.round((page + 1) / total * 100), lastReadAt: new Date().toISOString() };
+    const state = { page, bookmarks: marks, annotations, progress: Math.round((page + 1) / total * 100), lastReadAt: new Date().toISOString() };
     writeQueue.current = writeQueue.current.catch(() => {}).then(() => AsyncStorage.setItem('reader:' + book.id, JSON.stringify(state)))
       .then(() => { if (alive.current) setSaveError(''); })
       .catch(() => { if (alive.current) setSaveError('No se pudo guardar el progreso. Revisa el espacio disponible.'); });
-  }, [page, marks, ready, total, loading]);
+  }, [page, marks, annotations, ready, total, loading]);
 
   const changeSettings = patch => {
     const next = { ...settings, ...patch };
@@ -158,6 +166,26 @@ export default function Reader({ route, navigation }) {
     return needle ? pages.map((text, index) => ({ text, index })).filter(p => p.text.toLocaleLowerCase().includes(needle)) : [];
   }, [query, pages]);
   const chapters = useMemo(() => pages.map((text, index) => ({ index, text: text.split('\n')[0] })).filter((p, i) => i === 0 || /^(cap[íi]tulo|parte|introducci[óo]n|pr[óo]logo|ep[íi]logo|[IVX]+\.)/i.test(p.text)), [pages]);
+  const currentAnnotations = useMemo(() => annotations.filter(item => item.page === page), [annotations, page]);
+  const suggestions = useMemo(() => phraseOptions(pages[page] || ''), [pages, page]);
+  const openAnnotation = () => {
+    setDraftQuote('');
+    setDraftRange(null);
+    setDraftNote('');
+    setDraftColor(HIGHLIGHT_COLORS[0]);
+    setAnnotationMessage('');
+    setPanel('annotate');
+  };
+  const saveAnnotation = () => {
+    try {
+      const item = createAnnotation({ page, pageText: pdf ? null : (pages[page] || ''), quote: draftQuote, start: draftRange?.start, end: draftRange?.end, color: draftColor, note: draftNote });
+      setAnnotations(items => [...items, item]);
+      setAnnotationMessage(pdf ? 'Nota guardada.' : 'Resaltado guardado.');
+      setPanel('contents');
+    } catch (e) {
+      setAnnotationMessage(e.message);
+    }
+  };
   const icon = (name, label, action, disabled = false, selected = false) => <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled, selected }} disabled={disabled} onPress={action} style={({ pressed }) => [styles.icon, { opacity: disabled ? 0.3 : pressed ? 0.55 : 1 }]}><Ionicons name={name} size={23} color={palette.accent} /></Pressable>;
   const button = (label, action, disabled = false) => <Pressable accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} onPress={action} style={[styles.button, { borderColor: palette.line, opacity: disabled ? 0.4 : 1 }]}><Text style={{ color: palette.text, fontSize: 16 }}>{label}</Text></Pressable>;
   const textStyle = { color: palette.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * 1.65, fontFamily: 'serif' };
@@ -169,6 +197,7 @@ export default function Reader({ route, navigation }) {
       {icon('arrow-back', 'Volver a la biblioteca', () => navigation.goBack())}
       <View style={{ flex: 1 }}><Text numberOfLines={1} style={{ color: palette.text, fontWeight: '700', fontSize: 15 }}>{book.name}</Text><Text numberOfLines={1} style={{ color: palette.muted, fontSize: 12 }}>{book.author || 'Lectura personal'}</Text></View>
       {icon(marks.includes(page) ? 'bookmark' : 'bookmark-outline', 'Marcar esta página', () => setMarks(m => m.includes(page) ? m.filter(p => p !== page) : [...m, page].sort((a, b) => a - b)), !total, marks.includes(page))}
+      {icon('color-fill-outline', pdf ? 'Agregar nota a esta página' : 'Resaltar una frase', openAnnotation, !total)}
       {icon('options-outline', 'Ajustes de lectura', () => setPanel('settings'))}
     </View>}
     {!!saveError && <Text accessibilityRole="alert" style={{ padding: 8, color: palette.text }}>{saveError}</Text>}
@@ -193,7 +222,7 @@ export default function Reader({ route, navigation }) {
           { translateX: direction === 1 ? -width / 2 : width / 2 },
         ],
       }]}>
-        <ScrollView ref={scroll} contentContainerStyle={styles.paper} showsVerticalScrollIndicator><Text selectable style={textStyle}>{pages[page]}</Text></ScrollView>
+        <ScrollView ref={scroll} contentContainerStyle={styles.paper} showsVerticalScrollIndicator><Text selectable style={textStyle}>{textSegments(pages[page], currentAnnotations).map((segment, index) => <Text key={`${segment.annotation?.id || 'plain'}_${index}`} style={segment.annotation ? { backgroundColor: segment.annotation.color, color: '#1F2937' } : null}>{segment.text}</Text>)}</Text></ScrollView>
         {/* Sombreado del dorso de la hoja: se oscurece a medida que se levanta, como el papel al no recibir luz directa */}
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.5, 0, 0.5] }) }]} />
         {/* Sombra proyectada cerca del pliegue, más intensa junto al borde que gira */}
@@ -204,9 +233,8 @@ export default function Reader({ route, navigation }) {
         {[styles.cornerTop, styles.cornerBottom].map((base, i) => (
           <Animated.View key={i} pointerEvents="none" style={[base, {
             [direction === 1 ? 'right' : 'left']: 0,
-            width: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [78, 0, 78] }),
-            height: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [78, 0, 78] }),
             opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.95, 0, 0.95] }),
+            transform: [{ scale: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [1, 0.01, 1], extrapolate: 'clamp' }) }],
           }]}>
             <View style={{
               position: 'absolute', width: 120, height: 120,
@@ -229,7 +257,7 @@ export default function Reader({ route, navigation }) {
     </View>
     <Modal visible={!!panel} transparent animationType={reduced ? 'none' : 'fade'} onRequestClose={() => setPanel(null)}>
       <View style={styles.scrim}><SafeAreaView style={[styles.sheet, { backgroundColor: palette.paper }]}>
-        <View style={styles.toolbar}><Text accessibilityRole="header" style={{ flex: 1, color: palette.text, fontSize: 20, fontWeight: '700' }}>{{ settings: 'Tu forma de leer', contents: 'Explorar el libro', jump: 'Ir a una página' }[panel]}</Text>{icon('close', 'Cerrar panel', () => setPanel(null))}</View>
+        <View style={styles.toolbar}><Text accessibilityRole="header" style={{ flex: 1, color: palette.text, fontSize: 20, fontWeight: '700' }}>{{ settings: 'Tu forma de leer', contents: 'Explorar el libro', jump: 'Ir a una página', annotate: pdf ? 'Nota de página' : 'Resaltar una frase' }[panel]}</Text>{icon('close', 'Cerrar panel', () => setPanel(null))}</View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 18, gap: 12 }}>
           {panel === 'settings' && <>
             <Text style={{ color: palette.muted }}>APARIENCIA</Text><View style={styles.row}>{Object.keys(themes).map(t => <React.Fragment key={t}>{button(`${settings.theme === t ? '✓ ' : ''}${{ sepia: 'Sepia', light: 'Claro', dark: 'Noche' }[t]}`, () => changeSettings({ theme: t }))}</React.Fragment>)}</View>
@@ -237,8 +265,22 @@ export default function Reader({ route, navigation }) {
             {book.previewUrl && button('Abrir vista previa en el navegador', () => Linking.openURL(book.previewUrl).catch(() => setSaveError('No se pudo abrir la vista previa.')))}
           </>}
           {panel === 'jump' && <><Text style={{ color: palette.text }}>Número de página (1–{total})</Text><TextInput accessibilityLabel="Número de página" keyboardType="number-pad" value={jump} onChangeText={setJump} style={[styles.input, { color: palette.text, borderColor: palette.line }]} />{button('Ir a la página', () => goTo(Number(jump) - 1), !/^\d+$/.test(jump) || Number(jump) < 1 || Number(jump) > total)}</>}
+          {panel === 'annotate' && <>
+            {!pdf && <><Text style={{ color: palette.text, fontWeight: '700' }}>Elegí una frase de esta página</Text><View style={{ gap: 8 }}>{suggestions.map(option => <Pressable key={`${option.start}_${option.end}`} accessibilityRole="button" accessibilityState={{ selected: draftRange?.start === option.start }} onPress={() => { setDraftQuote(option.text); setDraftRange(option); setAnnotationMessage(''); }} style={[styles.quoteOption, { borderColor: draftRange?.start === option.start ? palette.accent : palette.line, backgroundColor: draftRange?.start === option.start ? `${draftColor}66` : 'transparent' }]}><Text style={{ color: palette.text, lineHeight: 21 }}>{option.text}</Text></Pressable>)}</View></>}
+            <Text style={{ color: palette.text, fontWeight: '700' }}>{pdf ? 'Frase o referencia (opcional)' : 'Frase seleccionada'}</Text>
+            <TextInput accessibilityLabel="Frase para resaltar" multiline value={draftQuote} onChangeText={value => { setDraftQuote(value); setDraftRange(null); setAnnotationMessage(''); }} placeholder={pdf ? 'Escribí una frase o referencia de esta página' : 'También podés escribir una frase exacta'} placeholderTextColor={palette.muted} style={[styles.input, styles.multiline, { color: palette.text, borderColor: palette.line }]} />
+            {!pdf && <><Text style={{ color: palette.text, fontWeight: '700' }}>Color del resaltado</Text><View style={styles.row}>{HIGHLIGHT_COLORS.map(color => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`Color ${color}`} accessibilityState={{ selected: draftColor === color }} onPress={() => setDraftColor(color)} style={[styles.colorChoice, { backgroundColor: color, borderColor: draftColor === color ? palette.accent : palette.line }]}><Ionicons name={draftColor === color ? 'checkmark' : 'ellipse-outline'} size={22} color="#1F2937" /></Pressable>)}</View></>}
+            <Text style={{ color: palette.text, fontWeight: '700' }}>Nota (opcional)</Text>
+            <TextInput accessibilityLabel="Nota personal" multiline value={draftNote} onChangeText={setDraftNote} placeholder="¿Por qué te gustó? ¿Qué querés recordar?" placeholderTextColor={palette.muted} style={[styles.input, styles.multiline, { color: palette.text, borderColor: palette.line }]} />
+            {!!annotationMessage && <Text accessibilityRole="alert" style={{ color: annotationMessage.includes('guardado') ? palette.accent : '#DC2626' }}>{annotationMessage}</Text>}
+            {button(pdf ? 'Guardar nota' : 'Guardar resaltado', saveAnnotation, !draftQuote.trim() && !draftNote.trim())}
+          </>}
           {panel === 'contents' && <>
+            {!!annotationMessage && <Text accessibilityRole="alert" style={{ color: palette.accent }}>{annotationMessage}</Text>}
             <Text style={{ color: palette.muted }}>MARCADORES</Text>{!marks.length && <Text style={{ color: palette.text }}>Usa el marcador de la cabecera para guardar una página.</Text>}{marks.filter(p => p < total).map(p => <React.Fragment key={p}>{button(`Página ${p + 1}`, () => goTo(p))}</React.Fragment>)}
+            <Text style={{ color: palette.muted, marginTop: 8 }}>RESALTADOS Y NOTAS</Text>
+            {!annotations.length && <Text style={{ color: palette.text }}>Todavía no guardaste frases ni notas.</Text>}
+            {annotations.filter(item => item.page < total).map(item => <View key={item.id} style={[styles.annotationCard, { borderColor: palette.line }]}><Pressable accessibilityRole="button" onPress={() => goTo(item.page)} style={{ flex: 1, gap: 5 }}><Text style={{ color: palette.accent, fontWeight: '700' }}>Página {item.page + 1}</Text>{!!item.quote && <Text style={{ color: '#1F2937', backgroundColor: item.color, padding: 6 }}>“{item.quote}”</Text>}{!!item.note && <Text style={{ color: palette.text }}>{item.note}</Text>}</Pressable>{icon('trash-outline', 'Eliminar anotación', () => setAnnotations(items => items.filter(note => note.id !== item.id)))}</View>)}
             {!pdf && <><TextInput accessibilityLabel="Buscar dentro del libro" placeholder="Buscar una palabra o frase" placeholderTextColor={palette.muted} value={query} onChangeText={setQuery} style={[styles.input, { color: palette.text, borderColor: palette.line }]} /><Text style={{ color: palette.muted }}>{query.trim() ? `${results.length} páginas encontradas` : 'ÍNDICE'}</Text>{(query.trim() ? results : chapters).map(p => <Pressable accessibilityRole="button" key={p.index} onPress={() => goTo(p.index)} style={[styles.button, { borderColor: palette.line }]}><Text style={{ color: palette.accent }}>Página {p.index + 1}</Text><Text numberOfLines={2} style={{ color: palette.text }}>{p.text}</Text></Pressable>)}</>}
           </>}
         </ScrollView>
@@ -250,12 +292,16 @@ const styles = StyleSheet.create({
   root: { flex: 1 }, toolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, minHeight: 58, borderBottomWidth: StyleSheet.hairlineWidth },
   icon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   paper: { paddingHorizontal: 26, paddingVertical: 28, paddingBottom: 48, maxWidth: 760, width: '100%', alignSelf: 'center' },
-  cornerTop: { position: 'absolute', top: 0, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
-  cornerBottom: { position: 'absolute', bottom: 0, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
+  cornerTop: { position: 'absolute', top: 0, width: 78, height: 78, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
+  cornerBottom: { position: 'absolute', bottom: 0, width: 78, height: 78, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
   scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: { maxHeight: '85%', minHeight: 280, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   button: { minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, justifyContent: 'center' },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 17 },
+  multiline: { minHeight: 88, textAlignVertical: 'top' },
+  quoteOption: { minHeight: 48, borderWidth: 1, borderRadius: 12, padding: 12, justifyContent: 'center' },
+  colorChoice: { width: 52, height: 52, borderRadius: 26, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  annotationCard: { minHeight: 64, borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

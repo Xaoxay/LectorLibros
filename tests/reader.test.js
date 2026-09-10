@@ -28,6 +28,7 @@ const mocks = {
  'react-native-pdf':'Pdf',
  'expo-file-system': {readAsStringAsync: async () => JSON.stringify(['Uno','Dos','Tres'])},
  'expo-linear-gradient': {LinearGradient: 'LinearGradient'},
+ './annotations': require('../src/annotations'),
 };
 const path = require('node:path').resolve('src/Reader.js');
 const mod = new Module(path, module);
@@ -110,5 +111,22 @@ test('rapid gestures cannot interrupt an active page transition', async()=>{
  assert.equal(state().page,1);
  deferAnimation=false;
  await press(view,'Página siguiente');assert.equal(state().page,2);
+ await act(async()=>view.unmount());
+});
+
+test('highlight and note are saved and survive reopening', async()=>{
+ store.clear();let view=await mount();
+ await press(view,'Resaltar una frase');
+ const phrase=view.root.findAllByType('Text').find(node=>node.children.join('')==='Capítulo 1');
+ await act(async()=>{phrase.parent.props.onPress();await flush();});
+ const note=view.root.findByProps({accessibilityLabel:'Nota personal'});
+ await act(async()=>{note.props.onChangeText('Mi comentario');await flush();});
+ const save=view.root.findAllByType('Text').find(node=>node.children.join('')==='Guardar resaltado');
+ await act(async()=>{save.parent.props.onPress();await flush();});
+ assert.equal(state().annotations.length,1);
+ assert.equal(state().annotations[0].quote,'Capítulo 1');
+ assert.equal(state().annotations[0].note,'Mi comentario');
+ await act(async()=>view.unmount());view=await mount();
+ assert.equal(state().annotations[0].note,'Mi comentario');
  await act(async()=>view.unmount());
 });

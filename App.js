@@ -14,6 +14,7 @@ import {
   StyleSheet,
   ScrollView,
   Share,
+  Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
@@ -25,6 +26,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -275,10 +277,10 @@ function BookCoverImage({ coverUrl, title, type, width = 145, height = 205, styl
    ========================================================================== */
 function BottomNavBar({ activeTab, navigation }) {
   const tabs = [
-    { key: "Welcome", label: "Inicio", icon: "🏠" },
-    { key: "Library", label: "Biblioteca", icon: "📚" },
-    { key: "Upload", label: "Subir", icon: "☁️" },
-    { key: "Profile", label: "Perfil", icon: "👤" },
+    { key: "Home", label: "Inicio", icon: "home-outline", activeIcon: "home" },
+    { key: "Library", label: "Biblioteca", icon: "library-outline", activeIcon: "library" },
+    { key: "Search", label: "Buscar", icon: "search-outline", activeIcon: "search" },
+    { key: "Profile", label: "Perfil", icon: "person-outline", activeIcon: "person" },
   ];
 
   return (
@@ -286,24 +288,67 @@ function BottomNavBar({ activeTab, navigation }) {
       {tabs.map((t) => {
         const isActive = activeTab === t.key;
         return (
-          <TouchableOpacity
+          <Pressable
             key={t.key}
+            accessibilityRole="button"
+            accessibilityLabel={t.label}
+            accessibilityState={{ selected: isActive }}
             onPress={() => navigation.navigate(t.key)}
-            style={styles.navItem}
-            activeOpacity={0.7}
+            style={({ pressed }) => [styles.navItem, pressed && { opacity: 0.6 }]}
           >
-            <Text style={[styles.navIcon, isActive && styles.navIconActive]}>{t.icon}</Text>
+            <Ionicons name={isActive ? t.activeIcon : t.icon} size={23} color={isActive ? COLORS.accentLight : COLORS.textMuted} />
             <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{t.label}</Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
   );
 }
 
-/* ==========================================================================
-   PANTALLA 1: INICIO / ONBOARDING (WelcomeScreen)
-   ========================================================================== */
+function HomeScreen({ navigation }) {
+  const [books, setBooks] = useState([]);
+
+  useEffect(() => {
+    const refresh = () => loadStoredBooks().then(setBooks);
+    refresh();
+    return navigation.addListener("focus", refresh);
+  }, [navigation]);
+
+  const recent = [...books]
+    .filter((book) => book.progress > 0 || book.lastReadAt)
+    .sort((a, b) => String(b.lastReadAt || "").localeCompare(String(a.lastReadAt || "")))[0];
+
+  const homeAction = (icon, title, subtitle, action) => (
+    <Pressable accessibilityRole="button" onPress={action} style={({ pressed }) => [styles.homeAction, pressed && { opacity: 0.7 }]}>
+      <View style={styles.homeActionIcon}><Ionicons name={icon} size={24} color={COLORS.accentLight} /></View>
+      <View style={{ flex: 1 }}><Text style={styles.homeActionTitle}>{title}</Text><Text style={styles.homeActionSubtitle}>{subtitle}</Text></View>
+      <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+    </Pressable>
+  );
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <StatusBar barStyle="light-content" />
+      <ScrollView contentContainerStyle={styles.homeContent}>
+        <Text style={styles.homeEyebrow}>LECTOR LIBROS</Text>
+        <Text style={styles.homeTitle}>Tu próxima lectura empieza acá</Text>
+        <Text style={styles.homeSubtitle}>Leé, resaltá frases y guardá tus ideas en un solo lugar.</Text>
+
+        {recent ? <Pressable accessibilityRole="button" onPress={() => navigation.navigate("Reader", { book: recent })} style={({ pressed }) => [styles.continueCard, pressed && { opacity: 0.75 }]}>
+          <BookCoverImage coverUrl={recent.cover} title={recent.name} type={recent.type} width={72} height={104} />
+          <View style={{ flex: 1, gap: 5 }}><Text style={styles.homeEyebrow}>CONTINUAR LEYENDO</Text><Text numberOfLines={2} style={styles.continueTitle}>{recent.name}</Text><Text numberOfLines={1} style={styles.homeActionSubtitle}>{recent.author}</Text><Text style={styles.continueProgress}>{recent.progress || 0}% completado</Text></View>
+        </Pressable> : <View style={styles.continueCard}><View style={styles.homeActionIcon}><Ionicons name="book-outline" size={26} color={COLORS.accentLight} /></View><View style={{ flex: 1 }}><Text style={styles.continueTitle}>Empezá tu biblioteca</Text><Text style={styles.homeActionSubtitle}>Descargá un clásico o importá tu propio libro.</Text></View></View>}
+
+        <Text style={styles.homeSectionTitle}>¿Qué querés hacer?</Text>
+        {homeAction("search", "Buscar libros", "Descargá EPUB gratuitos de dominio público", () => navigation.navigate("Search"))}
+        {homeAction("add-circle-outline", "Importar un archivo", "Agregá un PDF o EPUB desde tu dispositivo", () => navigation.navigate("Upload"))}
+        {homeAction("library-outline", "Abrir biblioteca", `${books.length} libros disponibles`, () => navigation.navigate("Library"))}
+      </ScrollView>
+      <BottomNavBar activeTab="Home" navigation={navigation} />
+    </SafeAreaView>
+  );
+}
+
 function LibraryScreen({ navigation, route }) {
   const [books, setBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -821,7 +866,7 @@ function ReaderScreen(props) {
    PANTALLA 8: BUSCAR EN LÍNEA (SearchScreen)
    ========================================================================== */
 function SearchScreen(props) {
-  return <CatalogScreen {...props} loadBooks={loadStoredBooks} saveBooks={saveAllBooks} />;
+  return <CatalogScreen {...props} loadBooks={loadStoredBooks} saveBooks={saveAllBooks} bottomBar={<BottomNavBar activeTab="Search" navigation={props.navigation} />} />;
 }
 
 /* ==========================================================================
@@ -913,9 +958,10 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider><NavigationContainer>
         <Stack.Navigator
-          initialRouteName="Library"
+          initialRouteName="Home"
           screenOptions={{ headerShown: false, animation: "fade" }}
         >
+          <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Library" component={LibraryScreen} />
           <Stack.Screen name="Upload" component={UploadScreen} />
           <Stack.Screen name="BookDetail" component={BookDetailScreen} />
@@ -935,6 +981,94 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: COLORS.bg,
+  },
+
+  homeContent: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 96,
+  },
+  homeEyebrow: {
+    color: COLORS.accentLight,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+  },
+  homeTitle: {
+    color: COLORS.text,
+    fontSize: 31,
+    lineHeight: 37,
+    fontWeight: "800",
+    marginTop: 8,
+  },
+  homeSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  homeSectionTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 26,
+    marginBottom: 12,
+  },
+  continueCard: {
+    minHeight: 136,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  continueTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: "700",
+  },
+  continueProgress: {
+    color: COLORS.accentLight,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  homeAction: {
+    minHeight: 72,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 10,
+    borderRadius: 16,
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  homeActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.bgElevated,
+  },
+  homeActionTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  homeActionSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
 
   // Welcome Screen
