@@ -5,9 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
-import { LinearGradient } from 'expo-linear-gradient';
 import { HIGHLIGHT_COLORS, createAnnotation, normalizeAnnotations, phraseOptions, textSegments } from './annotations';
 import BottomSheet from './BottomSheet';
+import PageCurl from './PageCurl';
 
 const themes = {
   sepia: { bg: '#F5ECD9', paper: '#FCF5E6', text: '#352C22', muted: '#74634E', line: '#DCCEAF', accent: '#855D2F' },
@@ -101,7 +101,7 @@ export default function Reader({ route, navigation }) {
   const resetDrag = () => {
     if (lock.current) return;
     lock.current = true;
-    Animated.spring(drag, { toValue: 0, stiffness: 240, damping: 28, mass: 1, useNativeDriver: true }).start(() => {
+    Animated.spring(drag, { toValue: 0, stiffness: 210, damping: 25, mass: 0.95, useNativeDriver: true }).start(() => {
       gestureX.current = 0;
       lock.current = false;
     });
@@ -127,7 +127,7 @@ export default function Reader({ route, navigation }) {
     setBusy(true);
     const token = ++animationId.current;
     const distance = Math.abs(-dir * width - gestureX.current);
-    Animated.timing(drag, { toValue: -dir * width, duration: Math.max(100, 280 * distance / width), easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+    Animated.timing(drag, { toValue: -dir * width, duration: Math.max(120, 360 * distance / width), easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
       if (!alive.current || token !== animationId.current) return;
       if (finished) {
         committing.current = true;
@@ -191,6 +191,7 @@ export default function Reader({ route, navigation }) {
   const button = (label, action, disabled = false) => <Pressable accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} onPress={action} style={[styles.button, { borderColor: palette.line, opacity: disabled ? 0.4 : 1 }]}><Text style={{ color: palette.text, fontSize: 16 }}>{label}</Text></Pressable>;
   const textStyle = { color: palette.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * 1.65, fontFamily: 'serif' };
   const underneath = pages[page + direction];
+  const renderPageText = (text, pageAnnotations, selectable = false) => <Text selectable={selectable} style={textStyle}>{textSegments(text || '', pageAnnotations).map((segment, index) => <Text key={`${segment.annotation?.id || 'plain'}_${index}`} style={segment.annotation ? { backgroundColor: segment.annotation.color, color: '#1F2937' } : null}>{segment.text}</Text>)}</Text>;
   if (!ready) return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}><ActivityIndicator style={{ flex: 1 }} color={palette.accent} /></SafeAreaView>;
   return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}>
     <StatusBar barStyle={settings.theme === 'dark' ? 'light-content' : 'dark-content'} />
@@ -205,49 +206,16 @@ export default function Reader({ route, navigation }) {
     {pdf ? <View style={{ flex: 1 }}>
       {error ? <View style={styles.empty}><Text style={{ color: palette.text }}>{error}</Text>{button('Reintentar', () => { setError(''); setLoading(true); setRetry(v => v + 1); })}</View> : <Pdf key={retry} ref={pdfRef} source={{ uri: book.url, cache: true }} trustAllCerts={false} page={page + 1} horizontal enablePaging style={{ flex: 1, backgroundColor: palette.paper }} onLoadComplete={count => { setTotal(count); setPage(p => Math.min(p, count - 1)); setLoading(false); }} onPageChanged={(p, count) => { if (!loading) setPage(p - 1); setTotal(count); }} onError={() => { setError('No se pudo abrir el PDF. Comprueba que sea válido y que no requiera contraseña.'); setLoading(false); }} />}
       {loading && !error && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.empty]}><ActivityIndicator color={palette.accent} /><Text style={{ color: palette.text }}>Abriendo PDF…</Text></View>}
-    </View> : total ? <View style={{ flex: 1, overflow: 'hidden', backgroundColor: palette.paper }} {...responder.panHandlers}>
-      {/* Página de abajo: la que queda revelada mientras la de arriba se levanta como papel real */}
-      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.paper }]}>
-        <View style={styles.paper}><Text style={textStyle}>{underneath}</Text></View>
-        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, [direction === 1 ? 'left' : 'right']: 0, width: 90, opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: direction === 1 ? [0.4, 0, 0] : [0, 0, 0.4] }) }}>
-          <LinearGradient colors={['rgba(20,15,5,0.45)', 'transparent']} start={{ x: direction === 1 ? 0 : 1, y: 0 }} end={{ x: direction === 1 ? 1 : 0, y: 0 }} style={StyleSheet.absoluteFillObject} />
-        </Animated.View>
-      </View>
-      {/* Página de arriba: se curva y gira en 3D sobre el lomo, como si fuera una hoja de papel real */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, {
-        backgroundColor: palette.paper,
-        transform: [
-          { perspective: 1500 },
-          { translateX: direction === 1 ? width / 2 : -width / 2 },
-          { rotateY: drag.interpolate({ inputRange: [-width, 0, width], outputRange: ['-125deg', '0deg', '125deg'], extrapolate: 'clamp' }) },
-          { translateX: direction === 1 ? -width / 2 : width / 2 },
-        ],
-      }]}>
-        <ScrollView ref={scroll} contentContainerStyle={styles.paper} showsVerticalScrollIndicator><Text selectable style={textStyle}>{textSegments(pages[page], currentAnnotations).map((segment, index) => <Text key={`${segment.annotation?.id || 'plain'}_${index}`} style={segment.annotation ? { backgroundColor: segment.annotation.color, color: '#1F2937' } : null}>{segment.text}</Text>)}</Text></ScrollView>
-        {/* Sombreado del dorso de la hoja: se oscurece a medida que se levanta, como el papel al no recibir luz directa */}
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.5, 0, 0.5] }) }]} />
-        {/* Sombra proyectada cerca del pliegue, más intensa junto al borde que gira */}
-        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, [direction === 1 ? 'right' : 'left']: 0, width: 34, opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.55, 0, 0.55] }) }}>
-          <LinearGradient colors={['rgba(0,0,0,0.5)', 'transparent']} start={{ x: direction === 1 ? 1 : 0, y: 0 }} end={{ x: direction === 1 ? 0 : 1, y: 0 }} style={StyleSheet.absoluteFillObject} />
-        </Animated.View>
-        {/* Esquina doblada (dog-ear): la punta de la hoja se despega y curva, como al doblar papel de verdad */}
-        {[styles.cornerTop, styles.cornerBottom].map((base, i) => (
-          <Animated.View key={i} pointerEvents="none" style={[base, {
-            [direction === 1 ? 'right' : 'left']: 0,
-            opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.95, 0, 0.95] }),
-            transform: [{ scale: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [1, 0.01, 1], extrapolate: 'clamp' }) }],
-          }]}>
-            <View style={{
-              position: 'absolute', width: 120, height: 120,
-              [direction === 1 ? 'right' : 'left']: -22, [i === 0 ? 'top' : 'bottom']: -22,
-              transform: [{ rotate: `${direction === 1 ? (i === 0 ? -45 : 45) : (i === 0 ? 45 : -45)}deg` }],
-            }}>
-              <LinearGradient colors={[palette.paper, palette.line, 'rgba(0,0,0,0.35)']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
-            </View>
-          </Animated.View>
-        ))}
-      </Animated.View>
-    </View> : <View style={styles.empty}><Text style={{ color: palette.text }}>Este libro no tiene texto disponible. Importa un PDF o EPUB para leerlo.</Text></View>}
+    </View> : total ? <PageCurl
+      width={width}
+      direction={direction}
+      drag={drag}
+      paperColor={palette.paper}
+      lineColor={palette.line}
+      panHandlers={responder.panHandlers}
+      targetPage={<View style={styles.paper}>{renderPageText(underneath, annotations.filter(item => item.page === page + direction))}</View>}
+      currentPage={<ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={styles.paper} showsVerticalScrollIndicator>{renderPageText(pages[page], currentAnnotations, true)}</ScrollView>}
+    /> : <View style={styles.empty}><Text style={{ color: palette.text }}>Este libro no tiene texto disponible. Importa un PDF o EPUB para leerlo.</Text></View>}
     <View style={{ height: 3, backgroundColor: palette.line }}><View style={{ height: 3, width: `${total ? (page + 1) / total * 100 : 0}%`, backgroundColor: palette.accent }} /></View>
     <View style={[styles.toolbar, { borderColor: palette.line }]}>
       {icon('chevron-back', 'Página anterior', () => turn(-1), !total || page === 0 || busy || loading)}
@@ -260,7 +228,7 @@ export default function Reader({ route, navigation }) {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 18, gap: 12 }}>
           {panel === 'settings' && <>
             <Text style={{ color: palette.muted }}>APARIENCIA</Text><View style={styles.row}>{Object.keys(themes).map(t => <React.Fragment key={t}>{button(`${settings.theme === t ? '✓ ' : ''}${{ sepia: 'Sepia', light: 'Claro', dark: 'Noche' }[t]}`, () => changeSettings({ theme: t }))}</React.Fragment>)}</View>
-            {!pdf && <><Text style={{ color: palette.muted }}>TAMAÑO DEL TEXTO · {settings.fontSize}</Text><View style={styles.row}>{button('A−', () => changeSettings({ fontSize: settings.fontSize - 2 }), settings.fontSize <= 14)}{button('A+', () => changeSettings({ fontSize: settings.fontSize + 2 }), settings.fontSize >= 30)}</View>{button(settings.motion && !reduced ? 'Deslizamiento de páginas: activada' : 'Deslizamiento de páginas: desactivada', () => changeSettings({ motion: !settings.motion }), reduced)}<Text style={{ color: palette.muted }}>Desliza horizontalmente para cambiar de página. Desplaza hacia arriba para leer textos largos.</Text></>}
+            {!pdf && <><Text style={{ color: palette.muted }}>TAMAÑO DEL TEXTO · {settings.fontSize}</Text><View style={styles.row}>{button('A−', () => changeSettings({ fontSize: settings.fontSize - 2 }), settings.fontSize <= 14)}{button('A+', () => changeSettings({ fontSize: settings.fontSize + 2 }), settings.fontSize >= 30)}</View>{button(settings.motion && !reduced ? 'Efecto page curl: activado' : 'Efecto page curl: desactivado', () => changeSettings({ motion: !settings.motion }), reduced)}<Text style={{ color: palette.muted }}>Arrastrá horizontalmente la hoja para doblarla y cambiar de página. Desplazá hacia arriba para leer textos largos.</Text></>}
             {book.previewUrl && button('Abrir vista previa en el navegador', () => Linking.openURL(book.previewUrl).catch(() => setSaveError('No se pudo abrir la vista previa.')))}
           </>}
           {panel === 'jump' && <><Text style={{ color: palette.text }}>Número de página (1–{total})</Text><TextInput accessibilityLabel="Número de página" keyboardType="number-pad" value={jump} onChangeText={setJump} style={[styles.input, { color: palette.text, borderColor: palette.line }]} />{button('Ir a la página', () => goTo(Number(jump) - 1), !/^\d+$/.test(jump) || Number(jump) < 1 || Number(jump) > total)}</>}
@@ -290,8 +258,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 }, toolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, minHeight: 58, borderBottomWidth: StyleSheet.hairlineWidth },
   icon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   paper: { paddingHorizontal: 26, paddingVertical: 28, paddingBottom: 48, maxWidth: 760, width: '100%', alignSelf: 'center' },
-  cornerTop: { position: 'absolute', top: 0, width: 78, height: 78, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
-  cornerBottom: { position: 'absolute', bottom: 0, width: 78, height: 78, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   button: { minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, justifyContent: 'center' },

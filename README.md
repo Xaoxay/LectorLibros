@@ -1,4 +1,4 @@
-# Lector Libros 2.4
+# Lector Libros 2.5
 
 Lector personal para Android con biblioteca local, importación de PDF/EPUB y búsqueda en Gutenberg y Open Library. Abre directamente la biblioteca; no requiere registro ni simula autenticación o sincronización en la nube.
 
@@ -6,7 +6,7 @@ Lector personal para Android con biblioteca local, importación de PDF/EPUB y b�
 
 - PDF nativo: paginación horizontal, zoom, salto de página, marcadores y recuperación de posición.
 - EPUB de texto sin DRM: lectura en orden del spine, extracción de portada, paginación sin perder párrafos largos y almacenamiento permanente en el dispositivo.
-- Paso de página lateral con dos hojas sincronizadas, cancelación del gesto y controles anterior/siguiente. La posición solo cambia al completar la transición; nuevos gestos no interrumpen el cambio en curso. Respeta la opción de reducir movimiento del sistema.
+- Efecto **page curl** en los EPUB: la hoja tiene frente y dorso, gira en perspectiva desde el lomo y combina pliegue, brillo y sombras progresivas mientras sigue el dedo. La página de destino queda visible debajo; al soltar, el gesto completa el cambio o vuelve con resorte. La posición solo cambia al completar la transición y respeta la opción de reducir movimiento del sistema.
 - Temas claro, sepia y noche, tamaño de letra de 14 a 30, lectura inmersiva, índice por encabezados y búsqueda dentro del EPUB.
 - Posición exacta, porcentaje y marcadores persistentes por libro. Preferencias persistentes.
 - Resaltados persistentes en EPUB: elección de frase, cuatro colores y nota opcional. En PDF se pueden guardar referencias y notas por página. El panel del lector reúne marcadores, resaltados y notas y permite volver a su página.
@@ -44,6 +44,7 @@ La firma actual es la firma de desarrollo heredada del proyecto. El APK sirve pa
 
 - `App.js`: biblioteca, importación, detalle, catálogo y perfil local.
 - `src/Reader.js`: lector PDF/EPUB, gestos, paneles y persistencia de lectura.
+- `src/PageCurl.js`: representación y sombreado de la hoja animada de dos caras.
 - `src/epub.js`: extracción EPUB y utilidades de paginación.
 - `src/CatalogScreen.js`: búsqueda, filtros y descargas.
 - `src/catalog.js`: APIs de Gutendex y Open Library.
@@ -56,7 +57,7 @@ EPUB usa extracción de texto, no maquetación editorial: no reproduce imágenes
 
 Esta versión conserva dependencias antiguas de la base del proyecto. `npm audit` informa vulnerabilidades que requieren una actualización de plataforma planificada; no se aplican actualizaciones mayores automáticas que puedan romper los módulos nativos.
 
-## Verificación de 2.4
+## Verificación de 2.5
 
 33 pruebas automatizadas: hoja inferior y gesto de cierre, gestos repetidos y transición interrumpida, persistencia PDF/EPUB, resaltados y notas, caché de búsqueda, resultados de catálogo, descargas, duplicados, cancelación y limpieza ante errores. Prueba de red real con Cervantes: búsqueda en español y descarga/procesamiento de Don Quijote. Consulta real del catálogo general con Dune. Las pruebas de componentes simulan módulos nativos y no sustituyen la revisión visual en un teléfono Android.
 

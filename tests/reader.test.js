@@ -30,6 +30,7 @@ const mocks = {
  'expo-linear-gradient': {LinearGradient: 'LinearGradient'},
  './annotations': require('../src/annotations'),
  './BottomSheet': props => React.createElement('BottomSheet', props, props.children),
+ './PageCurl': props => React.createElement('PageCurl', props, props.targetPage, props.currentPage),
 };
 const path = require('node:path').resolve('src/Reader.js');
 const mod = new Module(path, module);
