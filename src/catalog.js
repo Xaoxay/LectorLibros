@@ -20,7 +20,7 @@ async function searchCatalog({ query = '', language = '', source = 'free', page 
     const url = source === 'free'
       ? `${GUTENDEX}?search=${encodeURIComponent(query.trim())}&copyright=false&mime_type=application%2Fepub%2Bzip&page=${page}${language ? '&languages=' + encodeURIComponent(language) : ''}`
       : `https://openlibrary.org/search.json?q=${encodeURIComponent((query.trim() || 'literatura') + (language === 'es' ? ' language:spa' : ''))}&limit=20&page=${page}&fields=key,title,author_name,cover_i`;
-    const response = await fetcher(url, { signal: controller.signal });
+    const response = await fetcher(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error('El catálogo no respondió. Inténtalo nuevamente.');
     const data = await response.json();
     if (source === 'free') return { books: (data.results || []).map(normalizeGutenberg).filter(b => b.downloadUrl), more: !!data.next };

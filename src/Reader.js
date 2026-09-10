@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Linking, Modal, PanResponder, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Linking, PanResponder, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +7,7 @@ import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import { HIGHLIGHT_COLORS, createAnnotation, normalizeAnnotations, phraseOptions, textSegments } from './annotations';
+import BottomSheet from './BottomSheet';
 
 const themes = {
   sepia: { bg: '#F5ECD9', paper: '#FCF5E6', text: '#352C22', muted: '#74634E', line: '#DCCEAF', accent: '#855D2F' },
@@ -255,9 +256,7 @@ export default function Reader({ route, navigation }) {
       {icon('list-outline', 'Índice y marcadores', () => setPanel('contents'))}
       {icon(immersive ? 'contract-outline' : 'expand-outline', 'Alternar lectura inmersiva', () => setImmersive(v => !v))}
     </View>
-    <Modal visible={!!panel} transparent animationType={reduced ? 'none' : 'fade'} onRequestClose={() => setPanel(null)}>
-      <View style={styles.scrim}><SafeAreaView style={[styles.sheet, { backgroundColor: palette.paper }]}>
-        <View style={styles.toolbar}><Text accessibilityRole="header" style={{ flex: 1, color: palette.text, fontSize: 20, fontWeight: '700' }}>{{ settings: 'Tu forma de leer', contents: 'Explorar el libro', jump: 'Ir a una página', annotate: pdf ? 'Nota de página' : 'Resaltar una frase' }[panel]}</Text>{icon('close', 'Cerrar panel', () => setPanel(null))}</View>
+    <BottomSheet visible={!!panel} onClose={() => setPanel(null)} reducedMotion={reduced} backgroundColor={palette.paper} textColor={palette.text} accentColor={palette.accent} title={{ settings: 'Tu forma de leer', contents: 'Explorar el libro', jump: 'Ir a una página', annotate: pdf ? 'Nota de página' : 'Resaltar una frase' }[panel]}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 18, gap: 12 }}>
           {panel === 'settings' && <>
             <Text style={{ color: palette.muted }}>APARIENCIA</Text><View style={styles.row}>{Object.keys(themes).map(t => <React.Fragment key={t}>{button(`${settings.theme === t ? '✓ ' : ''}${{ sepia: 'Sepia', light: 'Claro', dark: 'Noche' }[t]}`, () => changeSettings({ theme: t }))}</React.Fragment>)}</View>
@@ -284,8 +283,7 @@ export default function Reader({ route, navigation }) {
             {!pdf && <><TextInput accessibilityLabel="Buscar dentro del libro" placeholder="Buscar una palabra o frase" placeholderTextColor={palette.muted} value={query} onChangeText={setQuery} style={[styles.input, { color: palette.text, borderColor: palette.line }]} /><Text style={{ color: palette.muted }}>{query.trim() ? `${results.length} páginas encontradas` : 'ÍNDICE'}</Text>{(query.trim() ? results : chapters).map(p => <Pressable accessibilityRole="button" key={p.index} onPress={() => goTo(p.index)} style={[styles.button, { borderColor: palette.line }]}><Text style={{ color: palette.accent }}>Página {p.index + 1}</Text><Text numberOfLines={2} style={{ color: palette.text }}>{p.text}</Text></Pressable>)}</>}
           </>}
         </ScrollView>
-      </SafeAreaView></View>
-    </Modal>
+    </BottomSheet>
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({
@@ -295,8 +293,6 @@ const styles = StyleSheet.create({
   cornerTop: { position: 'absolute', top: 0, width: 78, height: 78, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
   cornerBottom: { position: 'absolute', bottom: 0, width: 78, height: 78, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
-  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
-  sheet: { maxHeight: '85%', minHeight: 280, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   button: { minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, justifyContent: 'center' },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 17 },

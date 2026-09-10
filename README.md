@@ -1,4 +1,4 @@
-# Lector Libros 2.3
+# Lector Libros 2.4
 
 Lector personal para Android con biblioteca local, importación de PDF/EPUB y búsqueda en Gutenberg y Open Library. Abre directamente la biblioteca; no requiere registro ni simula autenticación o sincronización en la nube.
 
@@ -11,6 +11,7 @@ Lector personal para Android con biblioteca local, importación de PDF/EPUB y b�
 - Posición exacta, porcentaje y marcadores persistentes por libro. Preferencias persistentes.
 - Resaltados persistentes en EPUB: elección de frase, cuatro colores y nota opcional. En PDF se pueden guardar referencias y notas por página. El panel del lector reúne marcadores, resaltados y notas y permite volver a su página.
 - Pantalla de Inicio funcional con continuación de lectura y accesos directos a búsqueda, importación y biblioteca.
+- Los ajustes, el índice y las anotaciones se muestran en una hoja inferior animada: entra desde abajo, acompaña el arrastre, vuelve con resorte al soltarla y se cierra al superar el umbral. Respeta la preferencia de reducir movimiento.
 - Biblioteca con búsqueda, filtros PDF/EPUB, favoritos e historial desde el perfil.
 - Buscador online: Gutenberg ofrece EPUB completos descargables; Open Library permite consultar títulos del catálogo general y su disponibilidad. Filtro de idioma, paginación, progreso y cancelación de descargas. Las descargas se incorporan a la biblioteca local sin duplicados; archivos fallidos se eliminan.
 - Los libros descargables se seleccionan según la marca de dominio público en EE.UU. del catálogo Gutenberg. La disponibilidad y los derechos pueden variar por país. No se ofrecen descargas ficticias ni se eluden DRM o préstamos.
@@ -55,8 +56,8 @@ EPUB usa extracción de texto, no maquetación editorial: no reproduce imágenes
 
 Esta versión conserva dependencias antiguas de la base del proyecto. `npm audit` informa vulnerabilidades que requieren una actualización de plataforma planificada; no se aplican actualizaciones mayores automáticas que puedan romper los módulos nativos.
 
-## Verificación de 2.3
+## Verificación de 2.4
 
-27 pruebas automatizadas: gestos repetidos y transición interrumpida, persistencia PDF/EPUB, resaltados y notas, resultados de catálogo, descargas, duplicados, cancelación y limpieza ante errores. Prueba de red real con Cervantes: búsqueda en español y descarga/procesamiento de Don Quijote. Consulta real del catálogo general con Dune. Las pruebas de componentes simulan módulos nativos y no sustituyen la revisión visual en un teléfono Android.
+33 pruebas automatizadas: hoja inferior y gesto de cierre, gestos repetidos y transición interrumpida, persistencia PDF/EPUB, resaltados y notas, caché de búsqueda, resultados de catálogo, descargas, duplicados, cancelación y limpieza ante errores. Prueba de red real con Cervantes: búsqueda en español y descarga/procesamiento de Don Quijote. Consulta real del catálogo general con Dune. Las pruebas de componentes simulan módulos nativos y no sustituyen la revisión visual en un teléfono Android.
 
-Fuentes: [Gutendex](https://gutendex.com/), [Open Library Search API](https://openlibrary.org/dev/docs/api/search). Para un despliegue de gran escala, Gutendex recomienda alojar una instancia propia; el servicio público puede tardar o no estar disponible. La app muestra errores recuperables y limita las descargas a 40 MB y 90 segundos.
+Fuentes: [Gutendex](https://gutendex.com/), [Open Library Search API](https://openlibrary.org/dev/docs/api/search). El catálogo general busca automáticamente con una espera de 450 ms; la descarga gratuita se busca al pulsar el botón para evitar solicitudes innecesarias al servicio público de Gutendex. La app cancela solicitudes obsoletas, guarda resultados recientes durante cinco minutos y pagina la lista para reducir red y trabajo de renderizado. Para un despliegue de gran escala, Gutendex recomienda alojar una instancia propia; el servicio público puede tardar o no estar disponible. La app muestra errores recuperables y limita las descargas a 40 MB y 90 segundos.

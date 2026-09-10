@@ -6,11 +6,12 @@ import * as FileSystem from 'expo-file-system';
 import { searchCatalog } from './catalog';
 import { downloadBook } from './downloadBook';
 import { parseEpubFromBase64 } from './epub';
+import { SearchCache } from './searchCache';
 
 export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottomBar }) {
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
-  const [source, setSource] = useState('free');
+  const [source, setSource] = useState('all');
   const [language, setLanguage] = useState('');
   const [books, setBooks] = useState([]);
   const [page, setPage] = useState(1);
@@ -24,6 +25,7 @@ export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottom
   const sequence = useRef(0);
   const transfer = useRef(null);
   const alive = useRef(true);
+  const cache = useRef(new SearchCache()).current;
   const run = async (term, nextPage = 1) => {
     request.current?.abort();
     const id = ++sequence.current;
@@ -31,7 +33,12 @@ export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottom
     setLoading(true); setError('');
     if (nextPage === 1) { setBooks([]); setMore(false); }
     try {
-      const result = await searchCatalog({ query: term, source, language, page: nextPage, signal: controller.signal });
+      const parameters = { query: term, source, language, page: nextPage };
+      let result = cache.get(parameters);
+      if (!result) {
+        result = await searchCatalog({ ...parameters, signal: controller.signal });
+        cache.set(parameters, result);
+      }
       if (!alive.current || sequence.current !== id) return;
       setBooks(previous => nextPage === 1 ? result.books : [...previous, ...result.books.filter(b => !previous.some(p => p.id === b.id))]);
       setPage(nextPage); setMore(result.more);
@@ -39,6 +46,12 @@ export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottom
     finally { if (alive.current && id === sequence.current) setLoading(false); }
   };
   useEffect(() => { run(submitted); }, [source, language, submitted]);
+  useEffect(() => {
+    const term = query.trim();
+    if (source !== 'all' || term.length < 2 || term === submitted) return;
+    const timer = setTimeout(() => setSubmitted(term), 450);
+    return () => clearTimeout(timer);
+  }, [query, source, submitted]);
   useEffect(() => {
     const refresh = () => loadBooks().then(all => { if (alive.current) setOwned(Object.fromEntries(all.map(b => [b.id, b]))); }).catch(() => {});
     refresh(); const unsubscribe = navigation.addListener('focus', refresh);
@@ -59,12 +72,12 @@ export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottom
   const chip = (label, selected, action) => <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={action} style={[styles.chip, selected && styles.selected]}><Text style={styles.text}>{label}</Text></Pressable>;
   return <SafeAreaView style={styles.root}>
     <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={() => navigation.goBack()} style={styles.icon}><Ionicons name="arrow-back" color="#e6edf7" size={24} /></Pressable><View><Text style={styles.title}>Descubrir libros</Text><Text style={styles.muted}>Buscá por título o autor</Text></View></View>
-    <View style={styles.search}><TextInput accessibilityLabel="Buscar título o autor" value={query} onChangeText={setQuery} placeholder="Ej.: Cervantes, Sherlock Holmes…" placeholderTextColor="#96a6bc" style={[styles.text, { flex: 1, minHeight: 48 }]} returnKeyType="search" onSubmitEditing={() => query.trim() === submitted ? run(submitted) : setSubmitted(query.trim())} /><Pressable accessibilityRole="button" accessibilityLabel="Buscar libros" onPress={() => query.trim() === submitted ? run(submitted) : setSubmitted(query.trim())} style={styles.icon}><Ionicons name="search" size={24} color="#9fc5ff" /></Pressable></View>
-    <View style={styles.row}>{chip('Descarga gratuita', source === 'free', () => setSource('free'))}{chip('Catálogo general', source === 'all', () => setSource('all'))}</View>
+    <View style={styles.search}><TextInput accessibilityLabel="Buscar título o autor" value={query} onChangeText={setQuery} placeholder="Ej.: Cervantes, Sherlock Holmes…" placeholderTextColor="#96a6bc" style={[styles.text, { flex: 1, minHeight: 48 }]} returnKeyType="search" onSubmitEditing={() => query.trim() === submitted ? run(submitted) : setSubmitted(query.trim())} />{!!query && <Pressable accessibilityRole="button" accessibilityLabel="Borrar búsqueda" onPress={() => { setQuery(''); setSubmitted(''); }} style={styles.icon}><Ionicons name="close-circle" size={22} color="#96a6bc" /></Pressable>}<Pressable accessibilityRole="button" accessibilityLabel="Buscar libros" onPress={() => query.trim() === submitted ? run(submitted) : setSubmitted(query.trim())} style={styles.icon}><Ionicons name="search" size={24} color="#9fc5ff" /></Pressable></View>
+    <View style={styles.row}>{chip('Todos los libros', source === 'all', () => setSource('all'))}{chip('EPUB gratis', source === 'free', () => setSource('free'))}</View>
     <View style={styles.row}>{chip('Todos los idiomas', !language, () => setLanguage(''))}{chip('Español', language === 'es', () => setLanguage('es'))}</View>
-    <Text style={[styles.muted, { paddingHorizontal: 18, paddingBottom: 12 }]}>{source === 'free' ? 'Gutenberg · EPUB completos · Dominio público en EE.UU.' : 'Open Library · Información y disponibilidad. No todos los títulos permiten descarga.'}</Text>
+    <Text style={[styles.muted, { paddingHorizontal: 18, paddingBottom: 12 }]}>{source === 'free' ? 'Gutenberg · EPUB completos de dominio público. Escribí el título y tocá Buscar.' : 'Open Library · Busca automáticamente mientras escribís. No todos los títulos permiten descarga.'}</Text>
     {download && <View style={styles.banner}><ActivityIndicator color="#9fc5ff" /><Text style={[styles.text, { flex: 1 }]}>{progress === 100 ? 'Preparando libro…' : `Descargando ${progress == null ? '…' : progress + '%'}`}</Text><Pressable onPress={() => transfer.current?.abort()} accessibilityRole="button" style={styles.chip}><Text style={styles.text}>Cancelar</Text></Pressable></View>}
-    <FlatList data={books} keyExtractor={b => b.id} contentContainerStyle={{ padding: 18, gap: 14, flexGrow: 1 }} keyboardShouldPersistTaps="handled" renderItem={({ item }) => <View style={styles.card}>
+    <FlatList data={books} keyExtractor={b => b.id} initialNumToRender={6} maxToRenderPerBatch={8} windowSize={7} removeClippedSubviews contentContainerStyle={{ padding: 18, gap: 14, flexGrow: 1 }} keyboardShouldPersistTaps="handled" renderItem={({ item }) => <View style={styles.card}>
       {item.cover ? <Image source={{ uri: item.cover }} style={styles.cover} /> : <View style={[styles.cover, { alignItems: 'center', justifyContent: 'center' }]}><Ionicons name="book-outline" size={32} color="#96a6bc" /></View>}
       <View style={{ flex: 1, gap: 6 }}><Text style={[styles.text, { fontWeight: '700', fontSize: 17 }]} numberOfLines={3}>{item.name}</Text><Text style={styles.muted} numberOfLines={2}>{item.author}</Text><Pressable accessibilityRole="button" disabled={!!download && !owned[item.id]} onPress={() => getBook(item)} style={[styles.action, { opacity: download && !owned[item.id] ? 0.45 : 1 }]}><Text style={{ color: '#0a172b', fontWeight: '700' }}>{owned[item.id] ? 'Abrir en biblioteca' : item.downloadUrl ? 'Descargar EPUB' : 'Ver disponibilidad'}</Text></Pressable></View>
     </View>} ListEmptyComponent={!loading && !error ? <View style={{ paddingVertical: 32 }}><Text style={styles.text}>No encontramos libros con esa búsqueda.</Text><Text style={styles.muted}>{source === 'free' ? 'Probá con el autor, quitá el filtro de idioma o consultá el catálogo general.' : 'Probá con otro título o autor.'}</Text></View> : null} ListFooterComponent={<View style={{ gap: 12, paddingVertical: 16 }}>{loading && <ActivityIndicator color="#9fc5ff" />}{!!error && <><Text accessibilityRole="alert" style={styles.text}>{error}</Text>{chip('Reintentar', false, () => run(submitted, books.length ? page + 1 : 1))}</>}{more && !loading && !error && chip('Ver más resultados', false, () => run(submitted, page + 1))}</View>} />

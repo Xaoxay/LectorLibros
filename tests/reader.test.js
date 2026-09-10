@@ -29,6 +29,7 @@ const mocks = {
  'expo-file-system': {readAsStringAsync: async () => JSON.stringify(['Uno','Dos','Tres'])},
  'expo-linear-gradient': {LinearGradient: 'LinearGradient'},
  './annotations': require('../src/annotations'),
+ './BottomSheet': props => React.createElement('BottomSheet', props, props.children),
 };
 const path = require('node:path').resolve('src/Reader.js');
 const mod = new Module(path, module);
