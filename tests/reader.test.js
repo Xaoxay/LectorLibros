@@ -69,6 +69,8 @@ test('vertical scrolling does not trigger a page turn', async()=>{
  assert.equal(gesture.onStartShouldSetPanResponder(),false);
  assert.equal(gesture.onMoveShouldSetPanResponder({}, {dx:20,dy:100}),false);
  assert.equal(gesture.onMoveShouldSetPanResponder({}, {dx:70,dy:10}),true);
+ assert.equal(gesture.onMoveShouldSetPanResponderCapture({}, {dx:20,dy:100}),false);
+ assert.equal(gesture.onMoveShouldSetPanResponderCapture({}, {dx:70,dy:10}),true);
  await act(async()=>view.unmount());
 });
 test('PDF restores saved page and waits for native load before saving', async()=>{

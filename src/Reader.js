@@ -134,6 +134,7 @@ export default function Reader({ route, navigation }) {
   const responder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, g) => !lock.current && Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
+    onMoveShouldSetPanResponderCapture: (_, g) => !lock.current && Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
     onPanResponderMove: (_, g) => {
       if (lock.current) return;
       const current = latest.current;
