@@ -69,3 +69,25 @@ test('vertical scrolling does not trigger a page turn', async()=>{
  assert.equal(gesture.onMoveShouldSetPanResponder({}, {dx:70,dy:10}),true);
  await act(async()=>view.unmount());
 });
+test('PDF restores saved page and waits for native load before saving', async()=>{
+ store.clear();store.set('reader:test',JSON.stringify({page:4,bookmarks:[2]}));
+ const view=await mount({...book,type:'pdf',url:'file:///test.pdf'});
+ let native=view.root.findByType('Pdf'); assert.equal(native.props.page,5);
+ await act(async()=>{native.props.onPageChanged(1,10);await flush();});
+ assert.equal(state().page,4);
+ native=view.root.findByType('Pdf');
+ await act(async()=>{native.props.onLoadComplete(10);await flush();});
+ assert.equal(state().page,4);
+ native=view.root.findByType('Pdf');
+ await act(async()=>{native.props.onPageChanged(6,10);await flush();});
+ assert.equal(state().page,5); assert.equal(state().progress,60);
+ await act(async()=>view.unmount());
+});
+test('reader uses stored theme and font size', async()=>{
+ store.clear();store.set('reader:settings',JSON.stringify({theme:'dark',fontSize:26,motion:false}));
+ const view=await mount();
+ assert.equal(view.root.findByType('StatusBar').props.barStyle,'light-content');
+ assert.ok(view.root.findAllByType('Text').some(n=>n.props.style?.fontSize===26));
+ await press(view,'Página siguiente');assert.equal(state().page,1);
+ await act(async()=>view.unmount());
+});
