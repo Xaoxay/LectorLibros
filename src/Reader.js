@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Pdf from 'react-native-pdf';
 import * as FileSystem from 'expo-file-system';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const themes = {
   sepia: { bg: '#F5ECD9', paper: '#FCF5E6', text: '#352C22', muted: '#74634E', line: '#DCCEAF', accent: '#855D2F' },
@@ -175,10 +176,47 @@ export default function Reader({ route, navigation }) {
       {error ? <View style={styles.empty}><Text style={{ color: palette.text }}>{error}</Text>{button('Reintentar', () => { setError(''); setLoading(true); setRetry(v => v + 1); })}</View> : <Pdf key={retry} ref={pdfRef} source={{ uri: book.url, cache: true }} trustAllCerts={false} page={page + 1} horizontal enablePaging style={{ flex: 1, backgroundColor: palette.paper }} onLoadComplete={count => { setTotal(count); setPage(p => Math.min(p, count - 1)); setLoading(false); }} onPageChanged={(p, count) => { if (!loading) setPage(p - 1); setTotal(count); }} onError={() => { setError('No se pudo abrir el PDF. Comprueba que sea válido y que no requiera contraseña.'); setLoading(false); }} />}
       {loading && !error && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.empty]}><ActivityIndicator color={palette.accent} /><Text style={{ color: palette.text }}>Abriendo PDF…</Text></View>}
     </View> : total ? <View style={{ flex: 1, overflow: 'hidden', backgroundColor: palette.paper }} {...responder.panHandlers}>
-      <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.paper, transform: [{ translateX: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [direction * width - width, direction * width, direction * width + width] }) }] }]}><View style={styles.paper}><Text style={textStyle}>{underneath}</Text></View></Animated.View>
-      <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.paper, transform: [{ translateX: drag }] }]}>
+      {/* Página de abajo: la que queda revelada mientras la de arriba se levanta como papel real */}
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.paper }]}>
+        <View style={styles.paper}><Text style={textStyle}>{underneath}</Text></View>
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, [direction === 1 ? 'left' : 'right']: 0, width: 90, opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: direction === 1 ? [0.4, 0, 0] : [0, 0, 0.4] }) }}>
+          <LinearGradient colors={['rgba(20,15,5,0.45)', 'transparent']} start={{ x: direction === 1 ? 0 : 1, y: 0 }} end={{ x: direction === 1 ? 1 : 0, y: 0 }} style={StyleSheet.absoluteFillObject} />
+        </Animated.View>
+      </View>
+      {/* Página de arriba: se curva y gira en 3D sobre el lomo, como si fuera una hoja de papel real */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, {
+        backgroundColor: palette.paper,
+        transform: [
+          { perspective: 1500 },
+          { translateX: direction === 1 ? width / 2 : -width / 2 },
+          { rotateY: drag.interpolate({ inputRange: [-width, 0, width], outputRange: ['-125deg', '0deg', '125deg'], extrapolate: 'clamp' }) },
+          { translateX: direction === 1 ? -width / 2 : width / 2 },
+        ],
+      }]}>
         <ScrollView ref={scroll} contentContainerStyle={styles.paper} showsVerticalScrollIndicator><Text selectable style={textStyle}>{pages[page]}</Text></ScrollView>
-        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, [direction === 1 ? 'right' : 'left']: 0, width: 16, backgroundColor: palette.accent, opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.12, 0, 0.12] }) }} />
+        {/* Sombreado del dorso de la hoja: se oscurece a medida que se levanta, como el papel al no recibir luz directa */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.5, 0, 0.5] }) }]} />
+        {/* Sombra proyectada cerca del pliegue, más intensa junto al borde que gira */}
+        <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, [direction === 1 ? 'right' : 'left']: 0, width: 34, opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.55, 0, 0.55] }) }}>
+          <LinearGradient colors={['rgba(0,0,0,0.5)', 'transparent']} start={{ x: direction === 1 ? 1 : 0, y: 0 }} end={{ x: direction === 1 ? 0 : 1, y: 0 }} style={StyleSheet.absoluteFillObject} />
+        </Animated.View>
+        {/* Esquina doblada (dog-ear): la punta de la hoja se despega y curva, como al doblar papel de verdad */}
+        {[styles.cornerTop, styles.cornerBottom].map((base, i) => (
+          <Animated.View key={i} pointerEvents="none" style={[base, {
+            [direction === 1 ? 'right' : 'left']: 0,
+            width: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [78, 0, 78] }),
+            height: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [78, 0, 78] }),
+            opacity: drag.interpolate({ inputRange: [-width, 0, width], outputRange: [0.95, 0, 0.95] }),
+          }]}>
+            <View style={{
+              position: 'absolute', width: 120, height: 120,
+              [direction === 1 ? 'right' : 'left']: -22, [i === 0 ? 'top' : 'bottom']: -22,
+              transform: [{ rotate: `${direction === 1 ? (i === 0 ? -45 : 45) : (i === 0 ? 45 : -45)}deg` }],
+            }}>
+              <LinearGradient colors={[palette.paper, palette.line, 'rgba(0,0,0,0.35)']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
+            </View>
+          </Animated.View>
+        ))}
       </Animated.View>
     </View> : <View style={styles.empty}><Text style={{ color: palette.text }}>Este libro no tiene texto disponible. Importa un PDF o EPUB para leerlo.</Text></View>}
     <View style={{ height: 3, backgroundColor: palette.line }}><View style={{ height: 3, width: `${total ? (page + 1) / total * 100 : 0}%`, backgroundColor: palette.accent }} /></View>
@@ -212,6 +250,8 @@ const styles = StyleSheet.create({
   root: { flex: 1 }, toolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, minHeight: 58, borderBottomWidth: StyleSheet.hairlineWidth },
   icon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   paper: { paddingHorizontal: 26, paddingVertical: 28, paddingBottom: 48, maxWidth: 760, width: '100%', alignSelf: 'center' },
+  cornerTop: { position: 'absolute', top: 0, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
+  cornerBottom: { position: 'absolute', bottom: 0, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16 },
   scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: { maxHeight: '85%', minHeight: 280, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12 },

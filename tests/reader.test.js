@@ -27,6 +27,7 @@ const mocks = {
  '@react-native-async-storage/async-storage': {getItem: async k => store.get(k)||null, setItem: async(k,v) => store.set(k,v)},
  'react-native-pdf':'Pdf',
  'expo-file-system': {readAsStringAsync: async () => JSON.stringify(['Uno','Dos','Tres'])},
+ 'expo-linear-gradient': {LinearGradient: 'LinearGradient'},
 };
 const path = require('node:path').resolve('src/Reader.js');
 const mod = new Module(path, module);
