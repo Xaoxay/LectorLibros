@@ -20,33 +20,21 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
   });
   const sign = direction === 1 ? -1 : 1;
   const rotateY = atProgress(['0deg', `${sign * 45}deg`, `${sign * 115}deg`, `${sign * 180}deg`]);
-  const sheetOpacity = atProgress([1, 0.9, 0.96, 1]);
-  const underScale = atProgress([0.985, 0.99, 0.996, 1]);
+  const sheetScale = atProgress([1, 0.995, 0.965, 0.92]);
+  const travel = atProgress([0, sign * pageWidth * 0.04, sign * pageWidth * 0.12, sign * pageWidth * 0.22]);
+  const underScale = atProgress([0.985, 0.989, 0.995, 1]);
   const underTravel = atProgress([-sign * 8, -sign * 5, -sign * 2, 0]);
-
-  // Peeling curl geometry (from react-native-page-flipper)
-  const frontWidth = direction === 1
-    ? atProgress([0, pageWidth * 0.28, pageWidth * 0.68, pageWidth])
-    : atProgress([pageWidth, pageWidth * 0.68, pageWidth * 0.28, 0]);
-
-  const backWidth = direction === 1
-    ? atProgress([pageWidth, pageWidth * 0.72, pageWidth * 0.32, 0])
-    : atProgress([0, pageWidth * 0.32, pageWidth * 0.72, pageWidth]);
-
-  const backTranslateX = direction === 1
-    ? atProgress([0, pageWidth * 0.28, pageWidth * 0.68, pageWidth])
-    : atProgress([0, 0, 0, 0]);
 
   const projectedShadow = atProgress([0, 0.35, 0.55, 0.08]);
   const faceShade = atProgress([0, 0.2, 0.38, 0.06]);
   const ridgeOpacity = atProgress([0, 0.75, 0.95, 0.25]);
   const ridgeScale = atProgress([0.05, 0.65, 1, 0.3]);
-  const pivot = direction === 1 ? pageWidth / 2 : -pageWidth / 2;
+  const pivot = -pageWidth / 2;
   const movingEdge = direction === 1 ? { right: -36 } : { left: -36 };
   const bindingEdge = direction === 1 ? { left: 0 } : { right: 0 };
 
   return <View style={[styles.stage, { backgroundColor: paperColor }]} {...panHandlers}>
-    {/* 1. Destination Page (underneath, revealed as the sheet peels) */}
+    {/* 1. Destination Page (underneath, revealed as the sheet turns) */}
     <Animated.View
       pointerEvents="none"
       accessibilityElementsHidden
@@ -67,63 +55,50 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       </Animated.View>
     </Animated.View>
 
-    {/* 2. Peeling Front Page (shrinks horizontally as page curls towards the spine) */}
-    <Animated.View
-      style={[
-        styles.frontSheet,
-        {
-          width: frontWidth,
-          backgroundColor: paperColor,
-          ...(direction === 1 ? { left: 0 } : { right: 0 }),
-        },
-      ]}
-    >
-      <View style={{ width: pageWidth, height: '100%', ...(direction === 1 ? {} : { position: 'absolute', right: 0 }) }}>
-        {currentPage}
-      </View>
-
-      {/* Crease Ambient Shadow (FrontShadow from react-native-page-flipper) */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.foldShadow,
-          direction === 1 ? { right: 0 } : { left: 0 },
-          { opacity: faceShade },
-        ]}
-      >
-        <LinearGradient
-          colors={direction === 1
-            ? ['transparent', 'rgba(0,0,0,0.08)', 'rgba(0,0,0,0.32)']
-            : ['rgba(0,0,0,0.32)', 'rgba(0,0,0,0.08)', 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </Animated.View>
-    </Animated.View>
-
-    {/* 3. Curling Back Page (peels over with 3D rotation, BackShadow & Curl Ridge) */}
+    {/* 2. Turning Sheet in 3D Perspective (Dual Face: Front + Back without text clipping) */}
     <Animated.View
       renderToHardwareTextureAndroid
       shouldRasterizeIOS
       style={[
-        styles.backSheet,
+        styles.turningSheet,
         {
           backgroundColor: paperColor,
-          width: backWidth,
-          opacity: sheetOpacity,
-          ...(direction === 1 ? { left: 0 } : { right: 0 }),
           transform: [
             { perspective: 1500 },
-            { translateX: backTranslateX },
-            { translateX: pivot },
-            { rotateY },
+            { translateX: travel },
             { translateX: -pivot },
+            { rotateY },
+            { translateX: pivot },
+            { scale: sheetScale },
           ],
         },
       ]}
     >
-      {/* Back Face (Verso with BackShadow like in react-native-page-flipper) */}
+      {/* Front Face (Anverso): Intact full-width page text */}
+      <View style={[styles.face, { backgroundColor: paperColor }]}>
+        {currentPage}
+
+        {/* Crease Ambient Shadow (FrontShadow from react-native-page-flipper) */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.foldShadow,
+            direction === 1 ? { right: 0 } : { left: 0 },
+            { opacity: faceShade },
+          ]}
+        >
+          <LinearGradient
+            colors={direction === 1
+              ? ['transparent', 'rgba(0,0,0,0.08)', 'rgba(0,0,0,0.32)']
+              : ['rgba(0,0,0,0.32)', 'rgba(0,0,0,0.08)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </Animated.View>
+      </View>
+
+      {/* Back Face (Reverso / Verso): Clean paper texture with BackShadow */}
       <View pointerEvents="none" style={[styles.backFace, { backgroundColor: paperColor }]}>
         <LinearGradient
           colors={direction === 1
@@ -155,24 +130,23 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
 const styles = StyleSheet.create({
   stage: { flex: 1, overflow: 'hidden' },
   underPage: { ...StyleSheet.absoluteFillObject },
-  frontSheet: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    overflow: 'hidden',
-  },
-  backSheet: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    overflow: 'visible',
+  turningSheet: {
+    ...StyleSheet.absoluteFillObject,
     shadowColor: '#000',
     shadowOffset: { width: -2, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 8,
   },
-  backFace: { ...StyleSheet.absoluteFillObject },
+  face: {
+    ...StyleSheet.absoluteFillObject,
+    backfaceVisibility: 'hidden',
+  },
+  backFace: {
+    ...StyleSheet.absoluteFillObject,
+    backfaceVisibility: 'hidden',
+    transform: [{ rotateY: '180deg' }],
+  },
   foldShadow: { position: 'absolute', top: 0, bottom: 0, width: 42 },
   bindingShadow: { position: 'absolute', top: 0, bottom: 0, width: 96 },
   curlRidge: { position: 'absolute', top: 0, bottom: 0, width: 104 },
