@@ -874,18 +874,47 @@ function SearchScreen(props) {
    ========================================================================== */
 function ProfileScreen({ navigation }) {
   const [totalBooks, setTotalBooks] = useState(0);
+  const [profileName, setProfileName] = useState("Lector local");
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [isEditingName, setIsEditingName] = useState(false);
 
   useEffect(() => {
     loadStoredBooks().then((b) => setTotalBooks(b.length));
+    AsyncStorage.getItem("@profile_name").then(n => { if (n) setProfileName(n); });
+    AsyncStorage.getItem("@profile_photo").then(p => { if (p) setProfilePhoto(p); });
   }, []);
+
+  const saveName = async (name) => {
+    const finalName = name.trim() || "Lector local";
+    setProfileName(finalName);
+    setIsEditingName(false);
+    await AsyncStorage.setItem("@profile_name", finalName);
+  };
+
+  const pickPhoto = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: "image/*", copyToCacheDirectory: false });
+      if (!res.canceled && res.assets && res.assets.length > 0) {
+        const uri = res.assets[0].uri;
+        setProfilePhoto(uri);
+        await AsyncStorage.setItem("@profile_photo", uri);
+      }
+    } catch (e) {
+      Alert.alert("Error", "No se pudo cargar la imagen.");
+    }
+  };
+
+  const checkUpdates = () => {
+    Alert.alert("Actualización", "LectorLibros está en su última versión (v2.5.0).");
+  };
 
   const menuItems = [
     { key: "books", label: "Mis libros", icon: "📖", action: () => navigation.navigate("Library") },
-    { key: "downloads", label: "Descargas", icon: "⬇️", action: () => Alert.alert("Descargas", "Los PDF y EPUB importados se guardan en este dispositivo. La búsqueda y las vistas previas online requieren internet.") },
+    { key: "downloads", label: "Descargas", icon: "⬇️", action: () => Alert.alert("Descargas", "Los PDF y EPUB importados se guardan en este dispositivo.") },
     { key: "favs", label: "Favoritos", icon: "❤️", action: () => navigation.navigate("Library", { filter: "favorites" }) },
     { key: "history", label: "Historial de lectura", icon: "🕒", action: () => navigation.navigate("Library", { filter: "history" }) },
-    { key: "settings", label: "Configuración", icon: "⚙️", action: () => Alert.alert("Configuración", "Lector Libros 2.1. Los ajustes de tema, letra y animación están dentro del lector y se guardan en este dispositivo.") },
-
+    { key: "settings", label: "Configuración", icon: "⚙️", action: () => Alert.alert("Configuración", "Los ajustes de tema, letra y animación están dentro del lector y se guardan en este dispositivo.") },
+    { key: "update", label: "Buscar actualizaciones", icon: "🔄", action: checkUpdates },
   ];
 
   return (
@@ -895,23 +924,44 @@ function ProfileScreen({ navigation }) {
         {/* Cabecera */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Text style={styles.libraryTitle}>Mi Perfil</Text>
-          <TouchableOpacity
-            onPress={() => Alert.alert("Ajustes", "Dentro del lector puedes ajustar el tema, la letra y la animación.")}
-            style={{ padding: 6 }}
-          >
-            <Text style={{ fontSize: 20 }}>⚙️</Text>
+          <TouchableOpacity onPress={() => Alert.alert("LectorLibros", "Versión 2.5.0\nApp de lectura fluida a 60FPS.")} style={{ padding: 6 }}>
+            <Text style={{ color: COLORS.textMuted, fontSize: 13, fontWeight: "600" }}>v2.5.0</Text>
           </TouchableOpacity>
         </View>
 
         {/* Tarjeta de Usuario */}
         <View style={styles.profileCard}>
-          <View style={styles.profileAvatarLarge}>
-            <Text style={{ fontSize: 34 }}>👤</Text>
-          </View>
-          <View style={{ marginLeft: 16 }}>
-            <Text style={styles.profileName}>Lector local</Text>
+          <TouchableOpacity onPress={pickPhoto} style={styles.profileAvatarLarge}>
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={{ width: 64, height: 64, borderRadius: 32 }} />
+            ) : (
+              <Text style={{ fontSize: 34 }}>👤</Text>
+            )}
+            <View style={{ position: "absolute", bottom: -4, right: -4, backgroundColor: COLORS.accent, borderRadius: 12, padding: 4 }}>
+              <Ionicons name="camera" size={12} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <View style={{ marginLeft: 16, flex: 1 }}>
+            {isEditingName ? (
+              <TextInput
+                style={[styles.profileName, { borderBottomWidth: 1, borderColor: COLORS.accent, padding: 0, margin: 0, height: 26, color: COLORS.text }]}
+                value={profileName}
+                onChangeText={setProfileName}
+                onBlur={() => saveName(profileName)}
+                onSubmitEditing={() => saveName(profileName)}
+                autoFocus
+                returnKeyType="done"
+              />
+            ) : (
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text style={[styles.profileName, { flexShrink: 1 }]} numberOfLines={1}>{profileName}</Text>
+                <TouchableOpacity onPress={() => setIsEditingName(true)} style={{ marginLeft: 8, padding: 4 }}>
+                  <Ionicons name="pencil" size={14} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
             <Text style={styles.profileEmail}>Biblioteca en este dispositivo</Text>
-            <Text style={styles.profileBadge}>{totalBooks} libros en biblioteca</Text>
+            <Text style={styles.profileBadge}>{totalBooks} libros guardados</Text>
           </View>
         </View>
 
@@ -919,23 +969,10 @@ function ProfileScreen({ navigation }) {
         <View style={styles.profileMenuCard}>
           {menuItems.map((item, index) => (
             <React.Fragment key={item.key}>
-              <TouchableOpacity
-                onPress={item.action}
-                style={styles.profileMenuItem}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity onPress={item.action} style={styles.profileMenuItem} activeOpacity={0.7}>
                 <Text style={{ fontSize: 20, marginRight: 14 }}>{item.icon}</Text>
-                <Text
-                  style={[
-                    styles.profileMenuText,
-                    item.isDanger && { color: COLORS.danger },
-                  ]}
-                >
-                  {item.label}
-                </Text>
-                <Text style={{ color: COLORS.textMuted, fontSize: 16, marginLeft: "auto" }}>
-                  ›
-                </Text>
+                <Text style={styles.profileMenuText}>{item.label}</Text>
+                <Text style={{ color: COLORS.textMuted, fontSize: 16, marginLeft: "auto" }}>›</Text>
               </TouchableOpacity>
               {index < menuItems.length - 1 && <View style={styles.profileMenuDivider} />}
             </React.Fragment>
@@ -951,7 +988,6 @@ function ProfileScreen({ navigation }) {
 /* ==========================================================================
    NAVEGACIÓN PRINCIPAL
    ========================================================================== */
-const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (

@@ -11,7 +11,7 @@ import { SearchCache } from './searchCache';
 export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottomBar }) {
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
-  const [source, setSource] = useState('all');
+  const [source, setSource] = useState('free');
   const [language, setLanguage] = useState('');
   const [books, setBooks] = useState([]);
   const [page, setPage] = useState(1);
