@@ -59,14 +59,14 @@ test('page curl renders both paper faces, destination and layered light', () => 
   assert.equal(view.root.findAllByType('TargetPage').length, 1);
   assert.equal(view.root.findAllByType('LinearGradient').length, 4);
   assert.equal(view.root.findAllByProps({ renderToHardwareTextureAndroid: true }).length, 1);
-  assert.ok(interpolations.some(item => item.outputRange.includes('-156deg')));
+  assert.ok(interpolations.some(item => item.outputRange.includes('-180deg')));
   assert.ok(interpolations.every(item => item.extrapolate === 'clamp'));
   act(() => view.unmount());
 });
 
 test('page curl mirrors its hinge and rotation when returning a page', () => {
   const view = render(-1);
-  assert.ok(interpolations.some(item => item.outputRange.includes('156deg')));
+  assert.ok(interpolations.some(item => item.outputRange.includes('180deg')));
   assert.ok(interpolations.some(item => item.inputRange.join(',') === '0,128,288,400'));
   act(() => view.unmount());
 });
