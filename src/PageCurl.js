@@ -15,46 +15,41 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
     : [0, pageWidth * 0.32, pageWidth * 0.72, pageWidth];
   const atProgress = values => drag.interpolate({
     inputRange,
-    outputRange: direction === 1 ? [...values].reverse() : values,
+    outputRange: values,
     extrapolate: 'clamp',
   });
-  const sign = direction === 1 ? -1 : 1;
   const isSlide = mode === 'slide';
 
   // === 3D CURVATURE PHYSICS (MODO CURVA REAL) ===
   // Anchored Hinge Rotation: Pins the page rotation to the book's spine (always on the left for single-page portrait)
   const anchorOffset = pageWidth / 2;
-  const rotateY = direction === 1 
-    ? atProgress(['0deg', '-36deg', '-88deg', '-180deg']) 
-    : atProgress(['-180deg', '-88deg', '-36deg', '0deg']);
-  const rotateZ = direction === 1
-    ? atProgress(['0deg', '3.2deg', '1.2deg', '0deg'])
-    : atProgress(['0deg', '-1.2deg', '-3.2deg', '0deg']);
-  const sheetScaleX = atProgress([1, 0.93, 0.96, 1]);
-  const sheetScaleY = atProgress([1, 0.985, 0.99, 1]);
+  const rotateY = atProgress(['-180deg', '-88deg', '-36deg', '0deg']);
+  const rotateZ = atProgress(['0deg', '1.2deg', '3.2deg', '0deg']);
+  const sheetScaleX = atProgress([1, 0.96, 0.93, 1]);
+  const sheetScaleY = atProgress([1, 0.99, 0.985, 1]);
 
   // === SLIDE PHYSICS (MODO DESLIZAR KINDLE) ===
-  const slideTravel = atProgress([0, sign * pageWidth * 0.32, sign * pageWidth * 0.72, sign * pageWidth]);
+  const slideTravel = atProgress(direction === 1 ? [-pageWidth, -pageWidth * 0.72, -pageWidth * 0.32, 0] : [0, pageWidth * 0.32, pageWidth * 0.72, pageWidth]);
 
   // Destination Under-Page Depth
   const underScale = isSlide
-    ? atProgress([0.965, 0.978, 0.99, 1])
-    : atProgress([0.982, 0.988, 0.995, 1]);
+    ? atProgress([1, 0.99, 0.978, 0.965])
+    : atProgress([1, 0.995, 0.988, 0.982]);
   const underTravel = isSlide
-    ? atProgress([-sign * 16, -sign * 10, -sign * 4, 0])
-    : atProgress([-sign * 8, -sign * 4, -sign * 1.5, 0]);
+    ? atProgress(direction === 1 ? [0, 4, 10, 16] : [-16, -10, -4, 0])
+    : atProgress(direction === 1 ? [0, 1.5, 4, 8] : [-8, -4, -1.5, 0]);
 
   // Explicit opacity culling for Android Hermes:
-  const frontOpacity = isSlide ? 1 : (direction === 1 ? atProgress([1, 1, 0.85, 0]) : atProgress([0, 0.15, 1, 1]));
-  const backOpacity = isSlide ? 0 : (direction === 1 ? atProgress([0, 0, 0.15, 1]) : atProgress([1, 0.85, 0, 0]));
+  const frontOpacity = isSlide ? 1 : atProgress([0, 0.15, 1, 1]);
+  const backOpacity = isSlide ? 0 : atProgress([1, 0.85, 0, 0]);
 
   // Layered lighting, shadows, and specular curl ridge
   const projectedShadow = isSlide
-    ? atProgress([0.45, 0.35, 0.2, 0])
-    : (direction === 1 ? atProgress([0, 0.55, 0.65, 0.05]) : atProgress([0.05, 0.65, 0.55, 0]));
-  const faceShade = isSlide ? 0 : (direction === 1 ? atProgress([0, 0.32, 0.42, 0.04]) : atProgress([0.04, 0.42, 0.32, 0]));
-  const ridgeOpacity = isSlide ? 0 : (direction === 1 ? atProgress([0, 0.9, 0.95, 0.1]) : atProgress([0.1, 0.95, 0.9, 0]));
-  const ridgeScale = direction === 1 ? atProgress([0.2, 1.15, 1.35, 0.25]) : atProgress([0.25, 1.35, 1.15, 0.2]);
+    ? atProgress([0, 0.2, 0.35, 0.45])
+    : atProgress([0.05, 0.65, 0.55, 0]);
+  const faceShade = isSlide ? 0 : atProgress([0.04, 0.42, 0.32, 0]);
+  const ridgeOpacity = isSlide ? 0 : atProgress([0.1, 0.95, 0.9, 0]);
+  const ridgeScale = atProgress([0.25, 1.35, 1.15, 0.2]);
   const movingEdge = { right: -36 }; // Spine is always on the left, so the moving loose edge is always the right!
   const bindingEdge = { left: 0 }; // Binding is always on the left
 
