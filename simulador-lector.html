@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador de Lectura - LectorLibros</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #111827;
+      color: #f3f4f6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f9fafb;
+    }
+    .header p {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    /* Device frame */
+    .device {
+      width: 380px;
+      height: 600px;
+      background: #000;
+      border-radius: 36px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 10px #1f2937, 0 0 0 12px #374151;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Theme colors */
+    .theme-sepia { --bg: #F5ECD9; --paper: #FCF5E6; --text: #352C22; --muted: #74634E; --line: #DCCEAF; --accent: #855D2F; }
+    .theme-light { --bg: #EDEFF2; --paper: #FFFFFF; --text: #202938; --muted: #58677A; --line: #D3DBE5; --accent: #245DC1; }
+    .theme-dark  { --bg: #0C1420; --paper: #141F2F; --text: #E5EAF1; --muted: #A0AFC2; --line: #344458; --accent: #95BDFF; }
+
+    .reader-app {
+      flex: 1;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Top bar */
+    .top-bar {
+      height: 50px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      z-index: 50;
+    }
+    .top-bar .title-group {
+      flex: 1;
+      margin: 0 12px;
+    }
+    .top-bar .book-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-bar .book-author {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 6px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon-btn:hover { opacity: 0.7; }
+
+    /* Book Page Stage */
+    .book-stage {
+      flex: 1;
+      position: relative;
+      background: var(--paper);
+      overflow: hidden;
+      cursor: grab;
+    }
+    .book-stage:active { cursor: grabbing; }
+
+    /* Underneath Page (Target) */
+    .under-page {
+      position: absolute;
+      inset: 0;
+      background: var(--paper);
+      overflow: hidden;
+      transform-origin: center center;
+    }
+    .under-shadow {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 96px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Peeling Front Page */
+    .front-sheet {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: var(--paper);
+      overflow: hidden;
+      z-index: 10;
+    }
+    .front-sheet-content {
+      position: absolute;
+      top: 0;
+      width: 380px;
+      height: 100%;
+    }
+    .fold-shadow {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 44px;
+      pointer-events: none;
+      z-index: 12;
+    }
+
+    /* Curling Back Page (Verso) */
+    .back-sheet {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      z-index: 20;
+      overflow: visible;
+      transform-style: preserve-3d;
+    }
+    .back-face {
+      position: absolute;
+      inset: 0;
+      background: var(--paper);
+      box-shadow: -2px 4px 12px rgba(0, 0, 0, 0.28);
+    }
+    .back-shadow-gradient {
+      position: absolute;
+      inset: 0;
+    }
+    .curl-ridge {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 104px;
+      pointer-events: none;
+      z-index: 25;
+    }
+
+    /* Page text content */
+    .page-text-container {
+      padding: 22px 18px;
+      height: 100%;
+      overflow-y: auto;
+      font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+      font-size: 16px;
+      line-height: 1.65;
+      color: var(--text);
+      user-select: text;
+    }
+    .page-text-container h2 {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .page-text-container p {
+      margin-bottom: 12px;
+      text-indent: 1.5em;
+    }
+    .highlight-yellow { background-color: rgba(254, 240, 138, 0.7); color: #1f2937; border-radius: 2px; padding: 1px 3px; }
+
+    /* Progress bar */
+    .progress-bar-track {
+      height: 3px;
+      background: var(--line);
+      width: 100%;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+
+    /* Bottom toolbar */
+    .bottom-bar {
+      height: 50px;
+      border-top: 1px solid var(--line);
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      z-index: 50;
+    }
+    .page-info {
+      flex: 1;
+      text-align: center;
+      cursor: pointer;
+    }
+    .page-number {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .page-percent {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Control panel outside phone */
+    .controls {
+      margin-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      max-width: 480px;
+    }
+    .btn {
+      background: #1f2937;
+      color: #f3f4f6;
+      border: 1px solid #374151;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #374151; }
+    .btn.active { background: #2563eb; border-color: #3b82f6; }
+    .hints {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Simulador Interactivo: LectorLibros</h1>
+    <p>Arrastrá horizontalmente con el mouse o usá los botones para probar el efecto 3D</p>
+  </div>
+
+  <!-- Celular simulado -->
+  <div class="device theme-sepia" id="device">
+    <div class="reader-app">
+      <!-- Barra superior -->
+      <div class="top-bar">
+        <button class="icon-btn" title="Volver">◀</button>
+        <div class="title-group">
+          <div class="book-title" id="ui-book-title">El Principito</div>
+          <div class="book-author" id="ui-book-author">Antoine de Saint-Exupéry</div>
+        </div>
+        <button class="icon-btn" id="btn-theme-toggle" title="Cambiar tema">🎨</button>
+      </div>
+
+      <!-- Escenario del libro con la animación 3D de hojas -->
+      <div class="book-stage" id="stage">
+        <!-- 1. Página de fondo (revelada debajo al pasar la hoja) -->
+        <div class="under-page" id="underPage">
+          <div class="page-text-container" id="underContent"></div>
+          <div class="under-shadow" id="underShadow"></div>
+        </div>
+
+        <!-- 2. Página frontal que se va desprendiendo -->
+        <div class="front-sheet" id="frontSheet">
+          <div class="front-sheet-content" id="frontSheetContent">
+            <div class="page-text-container" id="currentContent"></div>
+          </div>
+          <div class="fold-shadow" id="foldShadow"></div>
+        </div>
+
+        <!-- 3. Dorso de la hoja curvándose en 3D (Verso) -->
+        <div class="back-sheet" id="backSheet">
+          <div class="back-face" id="backFace">
+            <div class="back-shadow-gradient" id="backShadowGradient"></div>
+          </div>
+          <div class="curl-ridge" id="curlRidge"></div>
+        </div>
+      </div>
+
+      <!-- Barra de progreso -->
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill" style="width: 25%;"></div>
+      </div>
+
+      <!-- Barra inferior -->
+      <div class="bottom-bar">
+        <button class="icon-btn" id="btn-prev" title="Página anterior">◀ Anterior</button>
+        <div class="page-info" id="btn-page-info">
+          <div class="page-number" id="ui-page-number">Página 1 / 4</div>
+          <div class="page-percent" id="ui-page-percent">25% leído</div>
+        </div>
+        <button class="icon-btn" id="btn-next" title="Página siguiente">Siguiente ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botones de prueba -->
+  <div class="controls">
+    <button class="btn active" onclick="setTheme('sepia')">Sepia</button>
+    <button class="btn" onclick="setTheme('light')">Claro</button>
+    <button class="btn" onclick="setTheme('dark')">Noche</button>
+    <button class="btn" onclick="turnPage(-1)">◀ Anterior</button>
+    <button class="btn" onclick="turnPage(1)">Siguiente ▶</button>
+  </div>
+  <div class="hints">
+    💡 Hacé click y arrastrá horizontalmente sobre la hoja del celular para doblarla con el mouse.
+  </div>
+
+  <script>
+    const bookPages = [
+      `<h2>Capítulo 1</h2>
+      <p>Pido perdón a los niños por haber dedicado este libro a una persona grande. Tengo una seria razón para ello: esta persona grande es el mejor amigo que tengo en el mundo.</p>
+      <p>Tengo otra razón, además: esta persona grande puede comprenderlo todo, hasta los libros para niños. Si todas estas razones no fueran suficientes, quiero dedicar este libro al niño que esta persona grande fue en otro tiempo.</p>
+      <p><span class="highlight-yellow">Todas las personas grandes han sido niños antes, pero pocas lo recuerdan.</span> Corrijo, pues, mi dedicatoria: A León Werth, cuando era niño.</p>`,
+
+      `<h2>Capítulo 2</h2>
+      <p>Viví así, solo, sin nadie con quien hablar verdaderamente, hasta un día en que mi avión sufrió una avería en el desierto de Sahara, hace seis años. Algo se había roto en mi motor.</p>
+      <p>La primera noche me dormí sobre la arena, a mil millas de toda tierra habitada. Estaba más aislado que un náufrago en una balsa en medio del océano.</p>
+      <p>Imaginen, pues, mi sorpresa cuando, al romper el día, me despertó una extraña vocecita que decía: <em>—Por favor... ¡dibújame un cordero!</em> Me puse en pie de un salto como herido por el rayo.</p>`,
+
+      `<h2>Capítulo 3</h2>
+      <p>Me costó mucho tiempo comprender de dónde venía. El principito, que siempre me hacía tantas preguntas, nunca parecía oír las mías. Fueron palabras pronunciadas al azar las que, poco a poco, me revelaron todo.</p>
+      <p>Así, cuando vio por primera vez mi avión me preguntó: <em>—¿Qué es esa cosa?</em> —No es una cosa. Vuela. Es un avión. Es mi avión. Y me sentí orgulloso de hacerle saber que volaba.</p>
+      <p>Entonces exclamó: <em>—¡Cómo! ¿Has caído del cielo?</em> —Sí —respondí modestamente. —¡Ah! ¡Eso es curioso!</p>`,
+
+      `<h2>Capítulo 4</h2>
+      <p>Supe así una segunda cosa muy importante: ¡su planeta de origen era apenas más grande que una casa! Pero esto no podía asombrarme mucho.</p>
+      <p>Sabía muy bien que, aparte de los grandes planetas como la Tierra, Júpiter o Marte, a los cuales se les ha dado nombre, existen centenares de otros planetas que son a veces tan pequeños que cuesta mucho verlos al telescopio.</p>
+      <p>Tengo serias razones para creer que el planeta del que venía el principito era el asteroide B 612. Este asteroide no ha sido visto más que una vez con el telescopio, en 1909, por un astrónomo turco.</p>`
+    ];
+
+    let currentPage = 0;
+    let isAnimating = false;
+    let currentTheme = 'sepia';
+    const totalPages = bookPages.length;
+
+    // Elements
+    const device = document.getElementById('device');
+    const stage = document.getElementById('stage');
+    const frontSheet = document.getElementById('frontSheet');
+    const frontSheetContent = document.getElementById('frontSheetContent');
+    const backSheet = document.getElementById('backSheet');
+    const backFace = document.getElementById('backFace');
+    const backShadowGradient = document.getElementById('backShadowGradient');
+    const underPage = document.getElementById('underPage');
+    const underShadow = document.getElementById('underShadow');
+    const foldShadow = document.getElementById('foldShadow');
+    const curlRidge = document.getElementById('curlRidge');
+    const currentContent = document.getElementById('currentContent');
+    const underContent = document.getElementById('underContent');
+    const progressFill = document.getElementById('progressFill');
+    const uiPageNumber = document.getElementById('ui-page-number');
+    const uiPagePercent = document.getElementById('ui-page-percent');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+
+    function updateUI() {
+      currentContent.innerHTML = bookPages[currentPage];
+      const percent = Math.round(((currentPage + 1) / totalPages) * 100);
+      progressFill.style.width = percent + '%';
+      uiPageNumber.textContent = `Página ${currentPage + 1} / ${totalPages}`;
+      uiPagePercent.textContent = `${percent}% leído`;
+      btnPrev.disabled = currentPage === 0;
+      btnNext.disabled = currentPage >= totalPages - 1;
+      btnPrev.style.opacity = currentPage === 0 ? '0.3' : '1';
+      btnNext.style.opacity = currentPage >= totalPages - 1 ? '0.3' : '1';
+      resetSheets();
+    }
+
+    function resetSheets() {
+      frontSheet.style.transition = 'none';
+      backSheet.style.transition = 'none';
+      underPage.style.transition = 'none';
+      underShadow.style.opacity = '0';
+      foldShadow.style.opacity = '0';
+      curlRidge.style.opacity = '0';
+      
+      frontSheet.style.width = '100%';
+      frontSheet.style.left = '0';
+      frontSheet.style.right = 'auto';
+      backSheet.style.width = '0px';
+      backSheet.style.left = '0';
+      backSheet.style.transform = 'perspective(1500px) rotateY(0deg)';
+      underPage.style.transform = 'scale(1) translateX(0px)';
+    }
+
+    // Geometry application based on react-native-page-flipper and PageCurl.js
+    function applyCurlState(progress, direction) {
+      const pageWidth = stage.offsetWidth || 380;
+      const clampedP = Math.max(0, Math.min(1, progress));
+      const sign = direction === 1 ? -1 : 1;
+
+      // 1. Destination under page
+      const underScale = 0.985 + 0.015 * clampedP;
+      const underTravel = (-sign * 8) * (1 - clampedP);
+      underPage.style.transform = `scale(${underScale}) translateX(${underTravel}px)`;
+
+      const underShadowOpacity = clampedP < 0.72 ? (clampedP / 0.72) * 0.55 : 0.55 - ((clampedP - 0.72) / 0.28) * 0.47;
+      underShadow.style.opacity = Math.max(0, underShadowOpacity);
+      if (direction === 1) {
+        underShadow.style.left = '0';
+        underShadow.style.right = 'auto';
+        underShadow.style.background = 'linear-gradient(to right, rgba(0,0,0,0.45), rgba(0,0,0,0.16) 25%, rgba(0,0,0,0.02) 70%, transparent)';
+      } else {
+        underShadow.style.right = '0';
+        underShadow.style.left = 'auto';
+        underShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.45), rgba(0,0,0,0.16) 25%, rgba(0,0,0,0.02) 70%, transparent)';
+      }
+
+      // 2. Front sheet shrinking
+      const frontW = pageWidth * (1 - clampedP);
+      frontSheet.style.width = frontW + 'px';
+      if (direction === 1) {
+        frontSheet.style.left = '0';
+        frontSheet.style.right = 'auto';
+        foldShadow.style.right = '0';
+        foldShadow.style.left = 'auto';
+        foldShadow.style.background = 'linear-gradient(to right, transparent, rgba(0,0,0,0.08) 60%, rgba(0,0,0,0.32))';
+      } else {
+        frontSheet.style.left = 'auto';
+        frontSheet.style.right = '0';
+        foldShadow.style.left = '0';
+        foldShadow.style.right = 'auto';
+        foldShadow.style.background = 'linear-gradient(to left, transparent, rgba(0,0,0,0.08) 60%, rgba(0,0,0,0.32))';
+      }
+      foldShadow.style.opacity = clampedP < 0.5 ? clampedP * 0.76 : (1 - clampedP) * 0.76;
+
+      // 3. Back sheet (Verso)
+      const backW = pageWidth * clampedP;
+      backSheet.style.width = backW + 'px';
+      const rotateDeg = sign * (clampedP * 180);
+      const pivot = direction === 1 ? pageWidth / 2 : -pageWidth / 2;
+      const backX = direction === 1 ? clampedP * (pageWidth * 0.68) : 0;
+
+      if (direction === 1) {
+        backSheet.style.left = '0';
+        backSheet.style.right = 'auto';
+        backShadowGradient.style.background = 'linear-gradient(to right, rgba(0,0,0,0.2), transparent 70%, rgba(0,0,0,0.45))';
+        curlRidge.style.right = '-36px';
+        curlRidge.style.left = 'auto';
+        curlRidge.style.background = 'linear-gradient(to right, transparent, rgba(255,255,255,0.7) 35%, rgba(0,0,0,0.35) 75%, transparent)';
+      } else {
+        backSheet.style.left = 'auto';
+        backSheet.style.right = '0';
+        backShadowGradient.style.background = 'linear-gradient(to left, rgba(0,0,0,0.2), transparent 70%, rgba(0,0,0,0.45))';
+        curlRidge.style.left = '-36px';
+        curlRidge.style.right = 'auto';
+        curlRidge.style.background = 'linear-gradient(to left, transparent, rgba(255,255,255,0.7) 35%, rgba(0,0,0,0.35) 75%, transparent)';
+      }
+
+      backSheet.style.transform = `perspective(1500px) translateX(${backX}px) translateX(${pivot}px) rotateY(${rotateDeg}deg) translateX(${-pivot}px)`;
+      const ridgeOp = clampedP < 0.5 ? clampedP * 1.9 : (1 - clampedP) * 1.9;
+      curlRidge.style.opacity = Math.max(0, ridgeOp);
+      curlRidge.style.transform = `scaleX(${0.1 + clampedP * 0.9})`;
+    }
+
+    function turnPage(dir) {
+      if (isAnimating) return;
+      const target = currentPage + dir;
+      if (target < 0 || target >= totalPages) return;
+
+      isAnimating = true;
+      underContent.innerHTML = bookPages[target];
+      const duration = 480;
+      const startTime = performance.now();
+
+      function animate(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
+        // Ease cubic out
+        const ease = 1 - Math.pow(1 - progress, 3);
+        applyCurlState(ease, dir);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          currentPage = target;
+          updateUI();
+          isAnimating = false;
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    // Drag tracking (mouse and touch)
+    let isDragging = false;
+    let startX = 0;
+    let dragDir = 1;
+
+    stage.addEventListener('mousedown', e => {
+      if (isAnimating) return;
+      isDragging = true;
+      startX = e.clientX;
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (!isDragging || isAnimating) return;
+      const dx = e.clientX - startX;
+      dragDir = dx < 0 ? 1 : -1;
+      const target = currentPage + dragDir;
+      if (target < 0 || target >= totalPages) return;
+
+      underContent.innerHTML = bookPages[target];
+      const stageW = stage.offsetWidth || 380;
+      const progress = Math.min(1, Math.abs(dx) / stageW);
+      applyCurlState(progress, dragDir);
+    });
+
+    window.addEventListener('mouseup', e => {
+      if (!isDragging) return;
+      isDragging = false;
+      const dx = e.clientX - startX;
+      const stageW = stage.offsetWidth || 380;
+      const progress = Math.abs(dx) / stageW;
+
+      if (progress > 0.18 && (currentPage + dragDir >= 0 && currentPage + dragDir < totalPages)) {
+        // Complete the flip
+        const remainingTime = 300 * (1 - progress);
+        const startTime = performance.now();
+        const startP = progress;
+        isAnimating = true;
+
+        function finish(now) {
+          const t = Math.min(1, (now - startTime) / Math.max(120, remainingTime));
+          const ease = startP + (1 - startP) * (1 - Math.pow(1 - t, 3));
+          applyCurlState(ease, dragDir);
+          if (t < 1) {
+            requestAnimationFrame(finish);
+          } else {
+            currentPage += dragDir;
+            updateUI();
+            isAnimating = false;
+          }
+        }
+        requestAnimationFrame(finish);
+      } else {
+        // Snap back
+        const startTime = performance.now();
+        const startP = progress;
+        isAnimating = true;
+
+        function snap(now) {
+          const t = Math.min(1, (now - startTime) / 180);
+          const ease = startP * (1 - t);
+          applyCurlState(ease, dragDir);
+          if (t < 1) {
+            requestAnimationFrame(snap);
+          } else {
+            resetSheets();
+            isAnimating = false;
+          }
+        }
+        requestAnimationFrame(snap);
+      }
+    });
+
+    function setTheme(t) {
+      currentTheme = t;
+      device.className = `device theme-${t}`;
+      document.querySelectorAll('.controls .btn').forEach(btn => {
+        if (btn.textContent.toLowerCase().includes(t)) {
+          btn.classList.add('active');
+        } else if (['sepia', 'claro', 'noche'].some(k => btn.textContent.toLowerCase().includes(k))) {
+          btn.classList.remove('active');
+        }
+      });
+    }
+
+    document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+      const themes = ['sepia', 'light', 'dark'];
+      const next = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
+      setTheme(next);
+    });
+
+    btnPrev.addEventListener('click', () => turnPage(-1));
+    btnNext.addEventListener('click', () => turnPage(1));
+
+    // Initialize
+    updateUI();
+  </script>
+</body>
+</html>
