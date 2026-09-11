@@ -25,6 +25,12 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
   const underScale = atProgress([0.985, 0.989, 0.995, 1]);
   const underTravel = atProgress([-sign * 8, -sign * 5, -sign * 2, 0]);
 
+  // Explicit opacity culling for Android Hermes (fixes backfaceVisibility bug):
+  // Front face (text) is 100% visible from 0deg up to ~85deg, then drops to 0 at 90deg.
+  // Back face (paper verso) is 0% visible until ~85deg, then rises to 100% past 90deg.
+  const frontOpacity = atProgress([1, 1, 0, 0]);
+  const backOpacity = atProgress([0, 0, 1, 1]);
+
   const projectedShadow = atProgress([0, 0.35, 0.55, 0.08]);
   const faceShade = atProgress([0, 0.2, 0.38, 0.06]);
   const ridgeOpacity = atProgress([0, 0.75, 0.95, 0.25]);
@@ -74,8 +80,8 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
         },
       ]}
     >
-      {/* Front Face (Anverso): Intact full-width page text */}
-      <View style={[styles.face, { backgroundColor: paperColor }]}>
+      {/* Front Face (Anverso): Intact full-width page text with explicit frontOpacity */}
+      <Animated.View style={[styles.face, { backgroundColor: paperColor, opacity: frontOpacity }]}>
         {currentPage}
 
         {/* Crease Ambient Shadow (FrontShadow from react-native-page-flipper) */}
@@ -96,10 +102,10 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
             style={StyleSheet.absoluteFillObject}
           />
         </Animated.View>
-      </View>
+      </Animated.View>
 
-      {/* Back Face (Reverso / Verso): Clean paper texture with BackShadow */}
-      <View pointerEvents="none" style={[styles.backFace, { backgroundColor: paperColor }]}>
+      {/* Back Face (Reverso / Verso): Clean paper texture with BackShadow and explicit backOpacity */}
+      <Animated.View pointerEvents="none" style={[styles.backFace, { backgroundColor: paperColor, opacity: backOpacity }]}>
         <LinearGradient
           colors={direction === 1
             ? [lineColor, paperColor, paperColor, 'rgba(0,0,0,0.35)']
@@ -109,7 +115,7 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFillObject}
         />
-      </View>
+      </Animated.View>
 
       {/* Dynamic Paper Curl Ridge Highlight along the folding edge */}
       <Animated.View pointerEvents="none" style={[styles.curlRidge, movingEdge, { opacity: ridgeOpacity, transform: [{ scaleX: ridgeScale }] }]}>

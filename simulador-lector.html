@@ -349,11 +349,12 @@
     <button class="btn active" onclick="setTheme('sepia')">Sepia</button>
     <button class="btn" onclick="setTheme('light')">Claro</button>
     <button class="btn" onclick="setTheme('dark')">Noche</button>
+    <button class="btn active" id="btn-toggle-motion" onclick="toggleMotion()">Animación 3D: ACTIVADA</button>
     <button class="btn" onclick="turnPage(-1)">◀ Anterior</button>
     <button class="btn" onclick="turnPage(1)">Siguiente ▶</button>
   </div>
   <div class="hints">
-    💡 Hacé click y arrastrá suavemente hacia la izquierda con el mouse para ver girar la hoja en 3D real sin cortes.
+    💡 Hacé click y arrastrá suavemente con el mouse para ver girar la hoja en 3D real sin cortes. Podés activar o desactivar la animación con el botón superior.
   </div>
 
   <script>
@@ -382,7 +383,20 @@
     let currentPage = 0;
     let isAnimating = false;
     let currentTheme = 'sepia';
+    let motionEnabled = true;
     const totalPages = bookPages.length;
+
+    function toggleMotion() {
+      motionEnabled = !motionEnabled;
+      const btn = document.getElementById('btn-toggle-motion');
+      if (motionEnabled) {
+        btn.textContent = 'Animación 3D: ACTIVADA';
+        btn.classList.add('active');
+      } else {
+        btn.textContent = 'Animación 3D: DESACTIVADA';
+        btn.classList.remove('active');
+      }
+    }
 
     // Elements
     const device = document.getElementById('device');
@@ -417,31 +431,30 @@
     }
 
     function resetSheets() {
-      turningSheet.style.transition = 'none';
-      underPage.style.transition = 'none';
-      underShadow.style.opacity = '0';
-      foldShadow.style.opacity = '0';
-      curlRidge.style.opacity = '0';
-      
+      turningSheet.style.transform = 'perspective(1500px) rotateY(0deg) scale(1)';
       turningSheet.style.transformOrigin = 'left center';
-      turningSheet.style.transform = 'perspective(1500px) rotateY(0deg)';
-      underPage.style.transform = 'scale(1) translateX(0px)';
+      turningSheet.style.display = 'block';
+      frontFace.style.opacity = '1';
+      backFace.style.opacity = '0';
+      underPage.style.display = 'none';
+      underPage.style.transform = 'scale(0.98) translateX(0)';
+      foldShadow.style.opacity = '0';
+      underShadow.style.opacity = '0';
+      curlRidge.style.opacity = '0';
     }
 
-    // Continuous 3D rotation and physical lighting
     function applyCurlState(progress, direction) {
-      const pageWidth = stage.offsetWidth || 380;
       const clampedP = Math.max(0, Math.min(1, progress));
       const sign = direction === 1 ? -1 : 1;
 
-      // 1. Underneath destination page
-      const underScale = 0.985 + 0.015 * clampedP;
-      const underTravel = (-sign * 8) * (1 - clampedP);
+      // 1. Destination under-page appears
+      underPage.style.display = 'block';
+      const underScale = 0.985 + clampedP * 0.015;
+      const underTravel = (1 - clampedP) * (sign * 12);
       underPage.style.transform = `scale(${underScale}) translateX(${underTravel}px)`;
 
-      // Sombra proyectada en la hoja inferior (PageShadow)
-      const underShadowOpacity = clampedP < 0.7 ? (clampedP / 0.7) * 0.45 : 0.45 - ((clampedP - 0.7) / 0.3) * 0.4;
-      underShadow.style.opacity = Math.max(0, underShadowOpacity);
+      // Sombra proyectada en la hoja destino
+      underShadow.style.opacity = clampedP < 0.5 ? clampedP * 0.9 : (1 - clampedP) * 0.9 + 0.1;
       if (direction === 1) {
         underShadow.style.left = '0';
         underShadow.style.right = 'auto';
@@ -452,13 +465,17 @@
         underShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.38), rgba(0,0,0,0.12) 30%, transparent 80%)';
       }
 
-      // 2. Turning sheet 3D rotation (True 3D Page Turn)
+      // 2. Turning sheet 3D rotation (True 3D Page Turn with Opacity Culling for Android)
       const rotateDeg = sign * (clampedP * 180);
       const sheetScale = 1 - clampedP * (1 - clampedP) * 0.09;
       const travelX = sign * (clampedP * 28);
 
       turningSheet.style.transformOrigin = direction === 1 ? 'left center' : 'right center';
       turningSheet.style.transform = `perspective(1500px) translateX(${travelX}px) rotateY(${rotateDeg}deg) scale(${sheetScale})`;
+
+      // Culling explícito de opacidad en 90 grados:
+      frontFace.style.opacity = clampedP < 0.5 ? '1' : '0';
+      backFace.style.opacity = clampedP < 0.5 ? '0' : '1';
 
       // Sombra ambiental en la bisagra de pliegue (FrontShadow)
       foldShadow.style.opacity = clampedP < 0.5 ? clampedP * 0.5 : (1 - clampedP) * 0.5;
@@ -496,6 +513,12 @@
       const target = currentPage + dir;
       if (target < 0 || target >= totalPages) return;
 
+      if (!motionEnabled) {
+        currentPage = target;
+        updateUI();
+        return;
+      }
+
       isAnimating = true;
       underContent.innerHTML = bookPages[target];
       const duration = 520;
@@ -532,6 +555,7 @@
 
     window.addEventListener('mousemove', e => {
       if (!isDragging || isAnimating) return;
+      if (!motionEnabled) return;
       const dx = e.clientX - startX;
       dragDir = dx < 0 ? 1 : -1;
       const target = currentPage + dragDir;
@@ -547,6 +571,14 @@
       if (!isDragging) return;
       isDragging = false;
       const dx = e.clientX - startX;
+
+      if (!motionEnabled) {
+        if (Math.abs(dx) > 40) {
+          turnPage(dx < 0 ? 1 : -1);
+        }
+        return;
+      }
+
       const stageW = stage.offsetWidth || 380;
       const progress = Math.abs(dx) / stageW;
 

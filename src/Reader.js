@@ -228,7 +228,23 @@ export default function Reader({ route, navigation }) {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 18, gap: 12 }}>
           {panel === 'settings' && <>
             <Text style={{ color: palette.muted }}>APARIENCIA</Text><View style={styles.row}>{Object.keys(themes).map(t => <React.Fragment key={t}>{button(`${settings.theme === t ? '✓ ' : ''}${{ sepia: 'Sepia', light: 'Claro', dark: 'Noche' }[t]}`, () => changeSettings({ theme: t }))}</React.Fragment>)}</View>
-            {!pdf && <><Text style={{ color: palette.muted }}>TAMAÑO DEL TEXTO · {settings.fontSize}</Text><View style={styles.row}>{button('A−', () => changeSettings({ fontSize: settings.fontSize - 2 }), settings.fontSize <= 14)}{button('A+', () => changeSettings({ fontSize: settings.fontSize + 2 }), settings.fontSize >= 30)}</View>{button(settings.motion && !reduced ? 'Efecto page curl: activado' : 'Efecto page curl: desactivado', () => changeSettings({ motion: !settings.motion }), reduced)}<Text style={{ color: palette.muted }}>Arrastrá horizontalmente la hoja para doblarla y cambiar de página. Desplazá hacia arriba para leer textos largos.</Text></>}
+            {!pdf && <>
+              <Text style={{ color: palette.muted }}>TAMAÑO DEL TEXTO · {settings.fontSize}</Text>
+              <View style={styles.row}>
+                {button('A−', () => changeSettings({ fontSize: settings.fontSize - 2 }), settings.fontSize <= 14)}
+                {button('A+', () => changeSettings({ fontSize: settings.fontSize + 2 }), settings.fontSize >= 30)}
+              </View>
+              <Text style={{ color: palette.muted, marginTop: 4 }}>PASO DE PÁGINA</Text>
+              <View style={styles.row}>
+                {button(settings.motion && !reduced ? '✓ Animación 3D (Activada)' : 'Animación 3D', () => changeSettings({ motion: true }), reduced)}
+                {button(!settings.motion || reduced ? '✓ Sin animación (Instantáneo)' : 'Sin animación (Instantáneo)', () => changeSettings({ motion: false }))}
+              </View>
+              <Text style={{ color: palette.muted }}>
+                {settings.motion && !reduced
+                  ? 'Arrastrá horizontalmente la hoja para doblarla en 3D y cambiar de página. Desplazá hacia arriba para leer textos largos.'
+                  : 'Modo instantáneo activo: las páginas cambian de inmediato sin transiciones.'}
+              </Text>
+            </>}
             {book.previewUrl && button('Abrir vista previa en el navegador', () => Linking.openURL(book.previewUrl).catch(() => setSaveError('No se pudo abrir la vista previa.')))}
           </>}
           {panel === 'jump' && <><Text style={{ color: palette.text }}>Número de página (1–{total})</Text><TextInput accessibilityLabel="Número de página" keyboardType="number-pad" value={jump} onChangeText={setJump} style={[styles.input, { color: palette.text, borderColor: palette.line }]} />{button('Ir a la página', () => goTo(Number(jump) - 1), !/^\d+$/.test(jump) || Number(jump) < 1 || Number(jump) > total)}</>}
