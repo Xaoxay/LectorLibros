@@ -66,7 +66,7 @@ test('page curl renders both paper faces, destination and layered light', () => 
 
 test('page curl mirrors its hinge and rotation when returning a page', () => {
   const view = render(-1);
-  assert.ok(interpolations.some(item => item.outputRange.includes('180deg')));
+  assert.ok(interpolations.some(item => item.outputRange.includes('-180deg')));
   assert.ok(interpolations.some(item => item.inputRange.join(',') === '0,128,288,400'));
   act(() => view.unmount());
 });

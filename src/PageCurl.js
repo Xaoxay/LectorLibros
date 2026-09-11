@@ -22,10 +22,14 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
   const isSlide = mode === 'slide';
 
   // === 3D CURVATURE PHYSICS (MODO CURVA REAL) ===
-  // Anchored Hinge Rotation: Pins the page rotation to the book's spine
-  const anchorOffset = direction === 1 ? pageWidth / 2 : -pageWidth / 2;
-  const rotateY = atProgress(['0deg', `${sign * 36}deg`, `${sign * 88}deg`, `${sign * 180}deg`]);
-  const rotateZ = atProgress(['0deg', `${direction === 1 ? -3.2 : 3.2}deg`, `${direction === 1 ? -1.2 : 1.2}deg`, '0deg']);
+  // Anchored Hinge Rotation: Pins the page rotation to the book's spine (always on the left for single-page portrait)
+  const anchorOffset = pageWidth / 2;
+  const rotateY = direction === 1 
+    ? atProgress(['0deg', '-36deg', '-88deg', '-180deg']) 
+    : atProgress(['-180deg', '-88deg', '-36deg', '0deg']);
+  const rotateZ = direction === 1
+    ? atProgress(['0deg', '3.2deg', '1.2deg', '0deg'])
+    : atProgress(['0deg', '-1.2deg', '-3.2deg', '0deg']);
   const sheetScaleX = atProgress([1, 0.93, 0.96, 1]);
   const sheetScaleY = atProgress([1, 0.985, 0.99, 1]);
 
@@ -41,18 +45,18 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
     : atProgress([-sign * 8, -sign * 4, -sign * 1.5, 0]);
 
   // Explicit opacity culling for Android Hermes:
-  const frontOpacity = isSlide ? 1 : atProgress([1, 1, 0.85, 0]);
-  const backOpacity = isSlide ? 0 : atProgress([0, 0, 0.15, 1]);
+  const frontOpacity = isSlide ? 1 : (direction === 1 ? atProgress([1, 1, 0.85, 0]) : atProgress([0, 0.15, 1, 1]));
+  const backOpacity = isSlide ? 0 : (direction === 1 ? atProgress([0, 0, 0.15, 1]) : atProgress([1, 0.85, 0, 0]));
 
   // Layered lighting, shadows, and specular curl ridge
   const projectedShadow = isSlide
     ? atProgress([0.45, 0.35, 0.2, 0])
-    : atProgress([0, 0.55, 0.65, 0.05]);
-  const faceShade = isSlide ? 0 : atProgress([0, 0.32, 0.42, 0.04]);
-  const ridgeOpacity = isSlide ? 0 : atProgress([0, 0.9, 0.95, 0.1]);
-  const ridgeScale = atProgress([0.2, 1.15, 1.35, 0.25]);
-  const movingEdge = direction === 1 ? { right: -36 } : { left: -36 };
-  const bindingEdge = direction === 1 ? { left: 0 } : { right: 0 };
+    : (direction === 1 ? atProgress([0, 0.55, 0.65, 0.05]) : atProgress([0.05, 0.65, 0.55, 0]));
+  const faceShade = isSlide ? 0 : (direction === 1 ? atProgress([0, 0.32, 0.42, 0.04]) : atProgress([0.04, 0.42, 0.32, 0]));
+  const ridgeOpacity = isSlide ? 0 : (direction === 1 ? atProgress([0, 0.9, 0.95, 0.1]) : atProgress([0.1, 0.95, 0.9, 0]));
+  const ridgeScale = direction === 1 ? atProgress([0.2, 1.15, 1.35, 0.25]) : atProgress([0.25, 1.35, 1.15, 0.2]);
+  const movingEdge = { right: -36 }; // Spine is always on the left, so the moving loose edge is always the right!
+  const bindingEdge = { left: 0 }; // Binding is always on the left
 
   const turningTransforms = isSlide
     ? [{ translateX: slideTravel }]
@@ -66,6 +70,9 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
         { scaleY: sheetScaleY },
       ];
 
+  const actualUnderPage = direction === 1 ? targetPage : currentPage;
+  const actualTurningPage = direction === 1 ? currentPage : targetPage;
+
   return <View style={[styles.stage, { backgroundColor: paperColor }]} {...panHandlers}>
     {/* 1. Destination Page (underneath, revealed as the sheet turns) */}
     <Animated.View
@@ -74,13 +81,11 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       importantForAccessibility="no-hide-descendants"
       style={[styles.underPage, { backgroundColor: paperColor, transform: [{ translateX: underTravel }, { scale: underScale }] }]}
     >
-      {targetPage}
+      {actualUnderPage}
       {/* Drop Shadow onto underneath page */}
       <Animated.View style={[styles.bindingShadow, bindingEdge, { opacity: projectedShadow }]}>
         <LinearGradient
-          colors={direction === 1
-            ? ['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.03)', 'transparent']
-            : ['transparent', 'rgba(0,0,0,0.03)', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.45)']}
+          colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.03)', 'transparent']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFillObject}
@@ -102,21 +107,19 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
     >
       {/* Front Face (Anverso): Intact full-width page text with explicit frontOpacity */}
       <Animated.View style={[styles.face, { backgroundColor: paperColor, opacity: frontOpacity }]}>
-        {currentPage}
+        {actualTurningPage}
 
         {/* Crease Ambient Shadow at the binding hinge */}
         <Animated.View
           pointerEvents="none"
           style={[
             styles.foldShadow,
-            direction === 1 ? { left: 0 } : { right: 0 },
+            { left: 0 },
             { opacity: faceShade },
           ]}
         >
           <LinearGradient
-            colors={direction === 1
-              ? ['rgba(0,0,0,0.38)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.06)', 'transparent']
-              : ['transparent', 'rgba(0,0,0,0.06)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.38)']}
+            colors={['rgba(0,0,0,0.38)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.06)', 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFillObject}
@@ -127,9 +130,7 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       {/* Back Face (Reverso / Verso): Clean paper texture with BackShadow */}
       <Animated.View pointerEvents="none" style={[styles.backFace, { backgroundColor: paperColor, opacity: backOpacity }]}>
         <LinearGradient
-          colors={direction === 1
-            ? [lineColor, paperColor, paperColor, 'rgba(0,0,0,0.35)']
-            : ['rgba(0,0,0,0.35)', paperColor, paperColor, lineColor]}
+          colors={[lineColor, paperColor, paperColor, 'rgba(0,0,0,0.35)']}
           locations={[0, 0.12, 0.72, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -140,9 +141,7 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       {/* Dynamic Paper Curl Ridge Highlight along the folding edge */}
       <Animated.View pointerEvents="none" style={[styles.curlRidge, movingEdge, { opacity: ridgeOpacity, transform: [{ scaleX: ridgeScale }] }]}>
         <LinearGradient
-          colors={direction === 1
-            ? ['transparent', 'rgba(255,255,255,0.85)', lineColor, 'rgba(0,0,0,0.45)', 'transparent']
-            : ['transparent', 'rgba(0,0,0,0.45)', lineColor, 'rgba(255,255,255,0.85)', 'transparent']}
+          colors={['transparent', 'rgba(255,255,255,0.85)', lineColor, 'rgba(0,0,0,0.45)', 'transparent']}
           locations={[0, 0.22, 0.46, 0.75, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -155,10 +154,9 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
 
 const styles = StyleSheet.create({
   stage: { flex: 1, overflow: 'hidden' },
-  underPage: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
+  underPage: { ...StyleSheet.absoluteFillObject },
   turningSheet: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
     shadowColor: '#000',
     shadowOffset: { width: -2, height: 4 },
     shadowOpacity: 0.35,
