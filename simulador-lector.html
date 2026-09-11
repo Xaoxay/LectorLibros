@@ -465,48 +465,49 @@
         underShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.38), rgba(0,0,0,0.12) 30%, transparent 80%)';
       }
 
-      // 2. Turning sheet natural travel and 3D curl
-      // The sheet travels across the page following the finger
+      // 2. Turning sheet natural travel and enhanced 3D paper curvature
+      // Uses sinusoidal curvature model for natural paper arching
       const travelX = sign * (clampedP * stage.offsetWidth);
-      const rotateDeg = sign * (clampedP * 45); // Subtle, natural paper lift instead of stiff 90deg door
-      const sheetScale = 1 - clampedP * (1 - clampedP) * 0.05;
+      const curveFactor = Math.sin(clampedP * Math.PI);
+      const rotateDeg = sign * (clampedP * 56 + curveFactor * 12); // Curvatura más marcada y orgánica
+      const tiltZ = sign * curveFactor * -2.8; // Elevación sutil de esquina como al agarrar la hoja
+      const sheetScale = 1 - curveFactor * 0.04;
 
       turningSheet.style.transformOrigin = direction === 1 ? 'right center' : 'left center';
-      turningSheet.style.transform = `perspective(1200px) translateX(${travelX}px) rotateY(${rotateDeg}deg) scale(${sheetScale})`;
+      turningSheet.style.transform = `perspective(950px) translateX(${travelX}px) rotateZ(${tiltZ}deg) rotateY(${rotateDeg}deg) scale(${sheetScale})`;
 
       // Culling explícito de opacidad para reverso
-      frontFace.style.opacity = clampedP < 0.85 ? '1' : String(Math.max(0, (1 - clampedP) / 0.15));
-      backFace.style.opacity = clampedP > 0.85 ? '1' : '0';
+      frontFace.style.opacity = clampedP < 0.82 ? '1' : String(Math.max(0, (1 - clampedP) / 0.18));
+      backFace.style.opacity = clampedP > 0.82 ? '1' : '0';
 
-      // Sombra ambiental en la bisagra de pliegue (FrontShadow)
-      foldShadow.style.opacity = clampedP < 0.5 ? clampedP * 0.5 : (1 - clampedP) * 0.5;
+      // Sombra ambiental en la bisagra de pliegue (FrontShadow con profundidad de curvatura)
+      foldShadow.style.opacity = curveFactor * 0.65;
       if (direction === 1) {
         foldShadow.style.left = '0';
         foldShadow.style.right = 'auto';
-        foldShadow.style.background = 'linear-gradient(to right, rgba(0,0,0,0.22), transparent)';
+        foldShadow.style.background = 'linear-gradient(to right, rgba(0,0,0,0.32), rgba(0,0,0,0.1) 40%, transparent)';
       } else {
         foldShadow.style.right = '0';
         foldShadow.style.left = 'auto';
-        foldShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.22), transparent)';
+        foldShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.32), rgba(0,0,0,0.1) 40%, transparent)';
       }
 
       // Reverso de la hoja (BackShadow)
       if (direction === 1) {
-        backShadowGradient.style.background = 'linear-gradient(to right, rgba(0,0,0,0.32), rgba(0,0,0,0.06) 60%, transparent)';
-        curlRidge.style.right = '-20px';
+        backShadowGradient.style.background = 'linear-gradient(to right, rgba(0,0,0,0.38), rgba(0,0,0,0.08) 60%, transparent)';
+        curlRidge.style.right = '-28px';
         curlRidge.style.left = 'auto';
-        curlRidge.style.background = 'linear-gradient(to right, transparent, rgba(255,255,255,0.6) 40%, rgba(0,0,0,0.25) 75%, transparent)';
+        curlRidge.style.background = 'linear-gradient(to right, transparent, rgba(255,255,255,0.75) 42%, rgba(0,0,0,0.3) 78%, transparent)';
       } else {
-        backShadowGradient.style.background = 'linear-gradient(to left, rgba(0,0,0,0.32), rgba(0,0,0,0.06) 60%, transparent)';
-        curlRidge.style.left = '-20px';
+        backShadowGradient.style.background = 'linear-gradient(to left, rgba(0,0,0,0.38), rgba(0,0,0,0.08) 60%, transparent)';
+        curlRidge.style.left = '-28px';
         curlRidge.style.right = 'auto';
-        curlRidge.style.background = 'linear-gradient(to left, transparent, rgba(255,255,255,0.6) 40%, rgba(0,0,0,0.25) 75%, transparent)';
+        curlRidge.style.background = 'linear-gradient(to left, transparent, rgba(255,255,255,0.75) 42%, rgba(0,0,0,0.3) 78%, transparent)';
       }
 
       // Brillo del lomo cilíndrico en el borde de doblado
-      const ridgeOp = clampedP < 0.5 ? clampedP * 1.6 : (1 - clampedP) * 1.6;
-      curlRidge.style.opacity = Math.max(0, ridgeOp);
-      curlRidge.style.transform = `scaleX(${0.2 + clampedP * 0.8})`;
+      curlRidge.style.opacity = Math.max(0, curveFactor * 1.5);
+      curlRidge.style.transform = `scaleX(${0.3 + curveFactor * 0.9})`;
     }
 
     function turnPage(dir) {

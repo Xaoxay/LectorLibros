@@ -19,21 +19,22 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
     extrapolate: 'clamp',
   });
   const sign = direction === 1 ? -1 : 1;
-  const rotateY = atProgress(['0deg', `${sign * 18}deg`, `${sign * 42}deg`, `${sign * 180}deg`]);
-  const sheetScale = atProgress([1, 0.992, 0.982, 0.96]);
+  const rotateY = atProgress(['0deg', `${sign * 28}deg`, `${sign * 56}deg`, `${sign * 180}deg`]);
+  const rotateZ = atProgress(['0deg', `${sign * -2.8}deg`, `${sign * -1.2}deg`, '0deg']);
+  const sheetScale = atProgress([1, 0.985, 0.965, 0.95]);
   const travel = atProgress([0, sign * pageWidth * 0.32, sign * pageWidth * 0.72, sign * pageWidth]);
   const underScale = atProgress([0.985, 0.989, 0.995, 1]);
-  const underTravel = atProgress([-sign * 8, -sign * 5, -sign * 2, 0]);
+  const underTravel = atProgress([-sign * 10, -sign * 6, -sign * 2, 0]);
 
   // Explicit opacity culling for Android Hermes (fixes backfaceVisibility bug):
   // Front face (text) is 100% visible while turning, and fades smoothly as it leaves the screen
   const frontOpacity = atProgress([1, 1, 0.85, 0]);
   const backOpacity = atProgress([0, 0, 0.15, 1]);
 
-  const projectedShadow = atProgress([0, 0.42, 0.58, 0.05]);
-  const faceShade = atProgress([0, 0.22, 0.35, 0.04]);
-  const ridgeOpacity = atProgress([0, 0.75, 0.95, 0.25]);
-  const ridgeScale = atProgress([0.05, 0.65, 1, 0.3]);
+  const projectedShadow = atProgress([0, 0.48, 0.65, 0.05]);
+  const faceShade = atProgress([0, 0.28, 0.45, 0.04]);
+  const ridgeOpacity = atProgress([0, 0.85, 1, 0.25]);
+  const ridgeScale = atProgress([0.1, 0.8, 1.25, 0.3]);
   const movingEdge = direction === 1 ? { right: -36 } : { left: -36 };
   const bindingEdge = direction === 1 ? { left: 0 } : { right: 0 };
 
@@ -50,8 +51,8 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       <Animated.View style={[styles.bindingShadow, bindingEdge, { opacity: projectedShadow }]}>
         <LinearGradient
           colors={direction === 1
-            ? ['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.16)', 'rgba(0,0,0,0.02)', 'transparent']
-            : ['transparent', 'rgba(0,0,0,0.02)', 'rgba(0,0,0,0.16)', 'rgba(0,0,0,0.45)']}
+            ? ['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.03)', 'transparent']
+            : ['transparent', 'rgba(0,0,0,0.03)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.5)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFillObject}
@@ -59,7 +60,7 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       </Animated.View>
     </Animated.View>
 
-    {/* 2. Turning Sheet in 3D Perspective (Dual Face: Front + Back without text clipping) */}
+    {/* 2. Turning Sheet in 3D Perspective with Enhanced Curvature */}
     <Animated.View
       renderToHardwareTextureAndroid
       shouldRasterizeIOS
@@ -68,8 +69,9 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
         {
           backgroundColor: paperColor,
           transform: [
-            { perspective: 1200 },
+            { perspective: 950 },
             { translateX: travel },
+            { rotateZ },
             { rotateY },
             { scale: sheetScale },
           ],
@@ -91,8 +93,8 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
         >
           <LinearGradient
             colors={direction === 1
-              ? ['transparent', 'rgba(0,0,0,0.08)', 'rgba(0,0,0,0.32)']
-              : ['rgba(0,0,0,0.32)', 'rgba(0,0,0,0.08)', 'transparent']}
+              ? ['transparent', 'rgba(0,0,0,0.06)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.42)']
+              : ['rgba(0,0,0,0.42)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.06)', 'transparent']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFillObject}
@@ -104,8 +106,8 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       <Animated.View pointerEvents="none" style={[styles.backFace, { backgroundColor: paperColor, opacity: backOpacity }]}>
         <LinearGradient
           colors={direction === 1
-            ? [lineColor, paperColor, paperColor, 'rgba(0,0,0,0.35)']
-            : ['rgba(0,0,0,0.35)', paperColor, paperColor, lineColor]}
+            ? [lineColor, paperColor, paperColor, 'rgba(0,0,0,0.38)']
+            : ['rgba(0,0,0,0.38)', paperColor, paperColor, lineColor]}
           locations={[0, 0.12, 0.72, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -117,9 +119,9 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       <Animated.View pointerEvents="none" style={[styles.curlRidge, movingEdge, { opacity: ridgeOpacity, transform: [{ scaleX: ridgeScale }] }]}>
         <LinearGradient
           colors={direction === 1
-            ? ['transparent', 'rgba(255,255,255,0.7)', lineColor, 'rgba(0,0,0,0.45)', 'transparent']
-            : ['transparent', 'rgba(0,0,0,0.45)', lineColor, 'rgba(255,255,255,0.7)', 'transparent']}
-          locations={[0, 0.25, 0.48, 0.72, 1]}
+            ? ['transparent', 'rgba(255,255,255,0.85)', lineColor, 'rgba(0,0,0,0.5)', 'transparent']
+            : ['transparent', 'rgba(0,0,0,0.5)', lineColor, 'rgba(255,255,255,0.85)', 'transparent']}
+          locations={[0, 0.22, 0.46, 0.75, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFillObject}
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
     backfaceVisibility: 'hidden',
     transform: [{ rotateY: '180deg' }],
   },
-  foldShadow: { position: 'absolute', top: 0, bottom: 0, width: 42 },
-  bindingShadow: { position: 'absolute', top: 0, bottom: 0, width: 96 },
-  curlRidge: { position: 'absolute', top: 0, bottom: 0, width: 104 },
+  foldShadow: { position: 'absolute', top: 0, bottom: 0, width: 56 },
+  bindingShadow: { position: 'absolute', top: 0, bottom: 0, width: 110 },
+  curlRidge: { position: 'absolute', top: 0, bottom: 0, width: 110 },
 });
