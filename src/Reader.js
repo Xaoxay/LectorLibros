@@ -69,7 +69,7 @@ export default function Reader({ route, navigation }) {
         setPage(Math.max(0, Math.min(Number.isInteger(state.page) ? state.page : 0, pdf ? Number.MAX_SAFE_INTEGER : Math.max(0, textPages.length - 1))));
         setMarks(Array.isArray(state.bookmarks) ? state.bookmarks.filter(Number.isInteger) : []);
         setAnnotations(normalizeAnnotations(state.annotations));
-        setSettings({ theme: themes[saved.theme] ? saved.theme : 'sepia', fontSize: Math.max(14, Math.min(30, Number(saved.fontSize) || 18)), motion: saved.motion !== false });
+        setSettings({ theme: themes[saved.theme] ? saved.theme : 'sepia', fontSize: Math.max(14, Math.min(30, Number(saved.fontSize) || 18)), motion: saved.motion !== false ? (saved.motion === 'slide' ? 'slide' : true) : false });
       }).catch(() => { if (alive.current) setSaveError('No se pudo recuperar la posición guardada.'); })
       .finally(() => { if (alive.current) setReady(true); });
     AccessibilityInfo.isReduceMotionEnabled().then(v => { if (alive.current) setReduced(v); });
@@ -212,6 +212,7 @@ export default function Reader({ route, navigation }) {
       drag={drag}
       paperColor={palette.paper}
       lineColor={palette.line}
+      mode={settings.motion === 'slide' ? 'slide' : 'curl'}
       panHandlers={responder.panHandlers}
       targetPage={<View style={styles.paper}>{renderPageText(underneath, annotations.filter(item => item.page === page + direction))}</View>}
       currentPage={<ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={styles.paper} showsVerticalScrollIndicator>{renderPageText(pages[page], currentAnnotations, true)}</ScrollView>}
@@ -236,12 +237,15 @@ export default function Reader({ route, navigation }) {
               </View>
               <Text style={{ color: palette.muted, marginTop: 4 }}>PASO DE PÁGINA</Text>
               <View style={styles.row}>
-                {button(settings.motion && !reduced ? '✓ Animación 3D (Activada)' : 'Animación 3D', () => changeSettings({ motion: true }), reduced)}
-                {button(!settings.motion || reduced ? '✓ Sin animación (Instantáneo)' : 'Sin animación (Instantáneo)', () => changeSettings({ motion: false }))}
+                {button(settings.motion !== false && settings.motion !== 'slide' && !reduced ? '✓ Curva 3D' : 'Curva 3D', () => changeSettings({ motion: true }), reduced)}
+                {button(settings.motion === 'slide' && !reduced ? '✓ Deslizar' : 'Deslizar', () => changeSettings({ motion: 'slide' }), reduced)}
+                {button(!settings.motion || reduced ? '✓ Instantáneo' : 'Instantáneo', () => changeSettings({ motion: false }))}
               </View>
               <Text style={{ color: palette.muted }}>
-                {settings.motion && !reduced
-                  ? 'Arrastrá horizontalmente la hoja para doblarla en 3D y cambiar de página. Desplazá hacia arriba para leer textos largos.'
+                {settings.motion === 'slide' && !reduced
+                  ? 'Modo deslizamiento activo: las hojas se deslizan suavemente con sombra táctil y profundidad tipo Kindle.'
+                  : settings.motion && !reduced
+                  ? 'Modo curvatura 3D activo: las hojas se doblan ancladas al lomo con curvatura física de papel real.'
                   : 'Modo instantáneo activo: las páginas cambian de inmediato sin transiciones.'}
               </Text>
             </>}

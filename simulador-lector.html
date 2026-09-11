@@ -349,12 +349,14 @@
     <button class="btn active" onclick="setTheme('sepia')">Sepia</button>
     <button class="btn" onclick="setTheme('light')">Claro</button>
     <button class="btn" onclick="setTheme('dark')">Noche</button>
-    <button class="btn active" id="btn-toggle-motion" onclick="toggleMotion()">Animación 3D: ACTIVADA</button>
+    <button class="btn active" id="btn-mode-curl" onclick="setMotionMode('curl')">📖 Curva 3D Real</button>
+    <button class="btn" id="btn-mode-slide" onclick="setMotionMode('slide')">📑 Deslizar (Kindle)</button>
+    <button class="btn" id="btn-mode-none" onclick="setMotionMode('none')">⚡ Instantáneo</button>
     <button class="btn" onclick="turnPage(-1)">◀ Anterior</button>
     <button class="btn" onclick="turnPage(1)">Siguiente ▶</button>
   </div>
   <div class="hints">
-    💡 Hacé click y arrastrá suavemente con el mouse para ver girar la hoja en 3D real sin cortes. Podés activar o desactivar la animación con el botón superior.
+    💡 Hacé click y arrastrá suavemente con el mouse para probar la curvatura física 3D real de la página anclada a la bisagra. Probá los 3 modos de lectura arriba.
   </div>
 
   <script>
@@ -383,19 +385,19 @@
     let currentPage = 0;
     let isAnimating = false;
     let currentTheme = 'sepia';
-    let motionEnabled = true;
+    let motionMode = 'curl'; // 'curl' | 'slide' | 'none'
     const totalPages = bookPages.length;
 
-    function toggleMotion() {
-      motionEnabled = !motionEnabled;
-      const btn = document.getElementById('btn-toggle-motion');
-      if (motionEnabled) {
-        btn.textContent = 'Animación 3D: ACTIVADA';
-        btn.classList.add('active');
-      } else {
-        btn.textContent = 'Animación 3D: DESACTIVADA';
-        btn.classList.remove('active');
-      }
+    function setMotionMode(mode) {
+      motionMode = mode;
+      ['curl', 'slide', 'none'].forEach(m => {
+        const btn = document.getElementById(`btn-mode-${m}`);
+        if (btn) {
+          if (m === mode) btn.classList.add('active');
+          else btn.classList.remove('active');
+        }
+      });
+      resetSheets();
     }
 
     // Elements
@@ -449,65 +451,88 @@
 
       // 1. Destination under-page appears
       underPage.style.display = 'block';
-      const underScale = 0.985 + clampedP * 0.015;
-      const underTravel = (1 - clampedP) * (sign * 12);
+      const underScale = 0.982 + clampedP * 0.018;
+      const underTravel = (1 - clampedP) * (sign * 8);
       underPage.style.transform = `scale(${underScale}) translateX(${underTravel}px)`;
 
-      // Sombra proyectada en la hoja destino
-      underShadow.style.opacity = clampedP < 0.5 ? clampedP * 0.9 : (1 - clampedP) * 0.9 + 0.1;
+      if (motionMode === 'slide') {
+        // === MODO DESLIZAR (TÁCTIL ESTILO KINDLE) ===
+        const travelX = sign * (clampedP * stage.offsetWidth);
+        turningSheet.style.transformOrigin = 'center center';
+        turningSheet.style.transform = `translateX(${travelX}px)`;
+        frontFace.style.opacity = '1';
+        backFace.style.opacity = '0';
+        foldShadow.style.opacity = '0';
+        curlRidge.style.opacity = '0';
+
+        underShadow.style.opacity = (1 - clampedP) * 0.45;
+        if (direction === 1) {
+          underShadow.style.left = '0';
+          underShadow.style.right = 'auto';
+          underShadow.style.background = 'linear-gradient(to right, rgba(0,0,0,0.35), rgba(0,0,0,0.08) 40%, transparent)';
+        } else {
+          underShadow.style.right = '0';
+          underShadow.style.left = 'auto';
+          underShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.35), rgba(0,0,0,0.08) 40%, transparent)';
+        }
+        return;
+      }
+
+      // === MODO CURVA 3D REAL (LIBRO FÍSICO) ===
+      // Sombra proyectada en la hoja destino con profundidad orgánica
+      underShadow.style.opacity = clampedP < 0.5 ? clampedP * 0.85 : (1 - clampedP) * 0.85 + 0.05;
       if (direction === 1) {
         underShadow.style.left = '0';
         underShadow.style.right = 'auto';
-        underShadow.style.background = 'linear-gradient(to right, rgba(0,0,0,0.38), rgba(0,0,0,0.12) 30%, transparent 80%)';
+        underShadow.style.background = 'linear-gradient(to right, rgba(0,0,0,0.42), rgba(0,0,0,0.15) 35%, transparent 85%)';
       } else {
         underShadow.style.right = '0';
         underShadow.style.left = 'auto';
-        underShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.38), rgba(0,0,0,0.12) 30%, transparent 80%)';
+        underShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.42), rgba(0,0,0,0.15) 35%, transparent 85%)';
       }
 
-      // 2. Turning sheet natural travel and enhanced 3D paper curvature
-      // Uses sinusoidal curvature model for natural paper arching
-      const travelX = sign * (clampedP * stage.offsetWidth);
+      // Giro anclado en la bisagra (lomo del libro)
       const curveFactor = Math.sin(clampedP * Math.PI);
-      const rotateDeg = sign * (clampedP * 56 + curveFactor * 12); // Curvatura más marcada y orgánica
-      const tiltZ = sign * curveFactor * -2.8; // Elevación sutil de esquina como al agarrar la hoja
-      const sheetScale = 1 - curveFactor * 0.04;
+      const rotateDeg = sign * (clampedP * 180);
+      const tiltZ = sign * curveFactor * -3.2; // Elevación natural de la esquina al pasar la página
+      const scaleX = 1 - curveFactor * 0.07; // Contracción por curvatura cilíndrica
+      const scaleY = 1 - curveFactor * 0.02;
 
-      turningSheet.style.transformOrigin = direction === 1 ? 'right center' : 'left center';
-      turningSheet.style.transform = `perspective(950px) translateX(${travelX}px) rotateZ(${tiltZ}deg) rotateY(${rotateDeg}deg) scale(${sheetScale})`;
+      turningSheet.style.transformOrigin = direction === 1 ? 'left center' : 'right center';
+      turningSheet.style.transform = `perspective(1200px) rotateZ(${tiltZ}deg) rotateY(${rotateDeg}deg) scale(${scaleX}, ${scaleY})`;
 
-      // Culling explícito de opacidad para reverso
-      frontFace.style.opacity = clampedP < 0.82 ? '1' : String(Math.max(0, (1 - clampedP) / 0.18));
-      backFace.style.opacity = clampedP > 0.82 ? '1' : '0';
+      // Culling de opacidad entre anverso y reverso
+      frontFace.style.opacity = clampedP < 0.5 ? '1' : String(Math.max(0, (0.55 - clampedP) / 0.05));
+      backFace.style.opacity = clampedP > 0.5 ? '1' : '0';
 
-      // Sombra ambiental en la bisagra de pliegue (FrontShadow con profundidad de curvatura)
-      foldShadow.style.opacity = curveFactor * 0.65;
+      // Sombra ambiental en la bisagra de pliegue
+      foldShadow.style.opacity = curveFactor * 0.55;
       if (direction === 1) {
         foldShadow.style.left = '0';
         foldShadow.style.right = 'auto';
-        foldShadow.style.background = 'linear-gradient(to right, rgba(0,0,0,0.32), rgba(0,0,0,0.1) 40%, transparent)';
+        foldShadow.style.background = 'linear-gradient(to right, rgba(0,0,0,0.35), rgba(0,0,0,0.12) 35%, transparent)';
       } else {
         foldShadow.style.right = '0';
         foldShadow.style.left = 'auto';
-        foldShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.32), rgba(0,0,0,0.1) 40%, transparent)';
+        foldShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.35), rgba(0,0,0,0.12) 35%, transparent)';
       }
 
-      // Reverso de la hoja (BackShadow)
+      // Reverso de la hoja (BackShadow) y brillo especular del lomo curvado
       if (direction === 1) {
-        backShadowGradient.style.background = 'linear-gradient(to right, rgba(0,0,0,0.38), rgba(0,0,0,0.08) 60%, transparent)';
-        curlRidge.style.right = '-28px';
+        backShadowGradient.style.background = 'linear-gradient(to right, rgba(0,0,0,0.35), rgba(0,0,0,0.06) 65%, transparent)';
+        curlRidge.style.right = '-20px';
         curlRidge.style.left = 'auto';
-        curlRidge.style.background = 'linear-gradient(to right, transparent, rgba(255,255,255,0.75) 42%, rgba(0,0,0,0.3) 78%, transparent)';
+        curlRidge.style.background = 'linear-gradient(to right, transparent, rgba(255,255,255,0.85) 45%, rgba(0,0,0,0.35) 80%, transparent)';
       } else {
-        backShadowGradient.style.background = 'linear-gradient(to left, rgba(0,0,0,0.38), rgba(0,0,0,0.08) 60%, transparent)';
-        curlRidge.style.left = '-28px';
+        backShadowGradient.style.background = 'linear-gradient(to left, rgba(0,0,0,0.35), rgba(0,0,0,0.06) 65%, transparent)';
+        curlRidge.style.left = '-20px';
         curlRidge.style.right = 'auto';
-        curlRidge.style.background = 'linear-gradient(to left, transparent, rgba(255,255,255,0.75) 42%, rgba(0,0,0,0.3) 78%, transparent)';
+        curlRidge.style.background = 'linear-gradient(to left, transparent, rgba(255,255,255,0.85) 45%, rgba(0,0,0,0.35) 80%, transparent)';
       }
 
       // Brillo del lomo cilíndrico en el borde de doblado
-      curlRidge.style.opacity = Math.max(0, curveFactor * 1.5);
-      curlRidge.style.transform = `scaleX(${0.3 + curveFactor * 0.9})`;
+      curlRidge.style.opacity = Math.max(0, curveFactor * 1.6);
+      curlRidge.style.transform = `scaleX(${0.3 + curveFactor * 1.1})`;
     }
 
     function turnPage(dir) {
@@ -515,7 +540,7 @@
       const target = currentPage + dir;
       if (target < 0 || target >= totalPages) return;
 
-      if (!motionEnabled) {
+      if (motionMode === 'none') {
         currentPage = target;
         updateUI();
         return;
@@ -523,7 +548,7 @@
 
       isAnimating = true;
       underContent.innerHTML = bookPages[target];
-      const duration = 520;
+      const duration = motionMode === 'slide' ? 380 : 520;
       const startTime = performance.now();
 
       function animate(now) {
@@ -557,7 +582,7 @@
 
     window.addEventListener('mousemove', e => {
       if (!isDragging || isAnimating) return;
-      if (!motionEnabled) return;
+      if (motionMode === 'none') return;
       const dx = e.clientX - startX;
       dragDir = dx < 0 ? 1 : -1;
       const target = currentPage + dragDir;
@@ -574,7 +599,7 @@
       isDragging = false;
       const dx = e.clientX - startX;
 
-      if (!motionEnabled) {
+      if (motionMode === 'none') {
         if (Math.abs(dx) > 40) {
           turnPage(dx < 0 ? 1 : -1);
         }
