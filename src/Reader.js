@@ -102,7 +102,7 @@ export default function Reader({ route, navigation }) {
   const resetDrag = () => {
     if (lock.current) return;
     lock.current = true;
-    Animated.spring(drag, { toValue: 0, stiffness: 210, damping: 25, mass: 0.95, useNativeDriver: false }).start(() => {
+    Animated.spring(drag, { toValue: 0, stiffness: 210, damping: 25, mass: 0.95, useNativeDriver: true }).start(() => {
       gestureX.current = 0;
       lock.current = false;
     });
@@ -128,7 +128,7 @@ export default function Reader({ route, navigation }) {
     setBusy(true);
     const token = ++animationId.current;
     const distance = Math.abs(-dir * width - gestureX.current);
-    Animated.timing(drag, { toValue: -dir * width, duration: Math.max(120, 360 * distance / width), easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(({ finished }) => {
+    Animated.timing(drag, { toValue: -dir * width, duration: Math.max(120, 360 * distance / width), easing: Easing.out(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
       if (!alive.current || token !== animationId.current) return;
       if (finished) {
         committing.current = true;
