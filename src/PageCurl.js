@@ -19,23 +19,21 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
     extrapolate: 'clamp',
   });
   const sign = direction === 1 ? -1 : 1;
-  const rotateY = atProgress(['0deg', `${sign * 45}deg`, `${sign * 115}deg`, `${sign * 180}deg`]);
-  const sheetScale = atProgress([1, 0.995, 0.965, 0.92]);
-  const travel = atProgress([0, sign * pageWidth * 0.04, sign * pageWidth * 0.12, sign * pageWidth * 0.22]);
+  const rotateY = atProgress(['0deg', `${sign * 18}deg`, `${sign * 42}deg`, `${sign * 180}deg`]);
+  const sheetScale = atProgress([1, 0.992, 0.982, 0.96]);
+  const travel = atProgress([0, sign * pageWidth * 0.32, sign * pageWidth * 0.72, sign * pageWidth]);
   const underScale = atProgress([0.985, 0.989, 0.995, 1]);
   const underTravel = atProgress([-sign * 8, -sign * 5, -sign * 2, 0]);
 
   // Explicit opacity culling for Android Hermes (fixes backfaceVisibility bug):
-  // Front face (text) is 100% visible from 0deg up to ~85deg, then drops to 0 at 90deg.
-  // Back face (paper verso) is 0% visible until ~85deg, then rises to 100% past 90deg.
-  const frontOpacity = atProgress([1, 1, 0, 0]);
-  const backOpacity = atProgress([0, 0, 1, 1]);
+  // Front face (text) is 100% visible while turning, and fades smoothly as it leaves the screen
+  const frontOpacity = atProgress([1, 1, 0.85, 0]);
+  const backOpacity = atProgress([0, 0, 0.15, 1]);
 
-  const projectedShadow = atProgress([0, 0.35, 0.55, 0.08]);
-  const faceShade = atProgress([0, 0.2, 0.38, 0.06]);
+  const projectedShadow = atProgress([0, 0.42, 0.58, 0.05]);
+  const faceShade = atProgress([0, 0.22, 0.35, 0.04]);
   const ridgeOpacity = atProgress([0, 0.75, 0.95, 0.25]);
   const ridgeScale = atProgress([0.05, 0.65, 1, 0.3]);
-  const pivot = -pageWidth / 2;
   const movingEdge = direction === 1 ? { right: -36 } : { left: -36 };
   const bindingEdge = direction === 1 ? { left: 0 } : { right: 0 };
 
@@ -70,11 +68,9 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
         {
           backgroundColor: paperColor,
           transform: [
-            { perspective: 1500 },
+            { perspective: 1200 },
             { translateX: travel },
-            { translateX: -pivot },
             { rotateY },
-            { translateX: pivot },
             { scale: sheetScale },
           ],
         },

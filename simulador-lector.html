@@ -465,17 +465,18 @@
         underShadow.style.background = 'linear-gradient(to left, rgba(0,0,0,0.38), rgba(0,0,0,0.12) 30%, transparent 80%)';
       }
 
-      // 2. Turning sheet 3D rotation (True 3D Page Turn with Opacity Culling for Android)
-      const rotateDeg = sign * (clampedP * 180);
-      const sheetScale = 1 - clampedP * (1 - clampedP) * 0.09;
-      const travelX = sign * (clampedP * 28);
+      // 2. Turning sheet natural travel and 3D curl
+      // The sheet travels across the page following the finger
+      const travelX = sign * (clampedP * stage.offsetWidth);
+      const rotateDeg = sign * (clampedP * 45); // Subtle, natural paper lift instead of stiff 90deg door
+      const sheetScale = 1 - clampedP * (1 - clampedP) * 0.05;
 
-      turningSheet.style.transformOrigin = direction === 1 ? 'left center' : 'right center';
-      turningSheet.style.transform = `perspective(1500px) translateX(${travelX}px) rotateY(${rotateDeg}deg) scale(${sheetScale})`;
+      turningSheet.style.transformOrigin = direction === 1 ? 'right center' : 'left center';
+      turningSheet.style.transform = `perspective(1200px) translateX(${travelX}px) rotateY(${rotateDeg}deg) scale(${sheetScale})`;
 
-      // Culling explícito de opacidad en 90 grados:
-      frontFace.style.opacity = clampedP < 0.5 ? '1' : '0';
-      backFace.style.opacity = clampedP < 0.5 ? '0' : '1';
+      // Culling explícito de opacidad para reverso
+      frontFace.style.opacity = clampedP < 0.85 ? '1' : String(Math.max(0, (1 - clampedP) / 0.15));
+      backFace.style.opacity = clampedP > 0.85 ? '1' : '0';
 
       // Sombra ambiental en la bisagra de pliegue (FrontShadow)
       foldShadow.style.opacity = clampedP < 0.5 ? clampedP * 0.5 : (1 - clampedP) * 0.5;
