@@ -25,7 +25,7 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
   // Anchored Hinge Rotation: Pins the page rotation to the book's spine
   const anchorOffset = direction === 1 ? pageWidth / 2 : -pageWidth / 2;
   const rotateY = atProgress(['0deg', `${sign * 36}deg`, `${sign * 88}deg`, `${sign * 180}deg`]);
-  const rotateZ = atProgress(['0deg', `${sign * -3.2}deg`, `${sign * -1.2}deg`, '0deg']);
+  const rotateZ = atProgress(['0deg', `${direction === 1 ? -3.2 : 3.2}deg`, `${direction === 1 ? -1.2 : 1.2}deg`, '0deg']);
   const sheetScaleX = atProgress([1, 0.93, 0.96, 1]);
   const sheetScaleY = atProgress([1, 0.985, 0.99, 1]);
 
@@ -104,19 +104,19 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
       <Animated.View style={[styles.face, { backgroundColor: paperColor, opacity: frontOpacity }]}>
         {currentPage}
 
-        {/* Crease Ambient Shadow */}
+        {/* Crease Ambient Shadow at the binding hinge */}
         <Animated.View
           pointerEvents="none"
           style={[
             styles.foldShadow,
-            direction === 1 ? { right: 0 } : { left: 0 },
+            direction === 1 ? { left: 0 } : { right: 0 },
             { opacity: faceShade },
           ]}
         >
           <LinearGradient
             colors={direction === 1
-              ? ['transparent', 'rgba(0,0,0,0.06)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.38)']
-              : ['rgba(0,0,0,0.38)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.06)', 'transparent']}
+              ? ['rgba(0,0,0,0.38)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.06)', 'transparent']
+              : ['transparent', 'rgba(0,0,0,0.06)', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.38)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFillObject}
@@ -155,9 +155,10 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
 
 const styles = StyleSheet.create({
   stage: { flex: 1, overflow: 'hidden' },
-  underPage: { ...StyleSheet.absoluteFillObject },
+  underPage: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
   turningSheet: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
     shadowColor: '#000',
     shadowOffset: { width: -2, height: 4 },
     shadowOpacity: 0.35,

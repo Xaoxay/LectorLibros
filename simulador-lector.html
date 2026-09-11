@@ -284,7 +284,7 @@
 <body>
 
   <div class="header">
-    <h1>Simulador Interactivo: LectorLibros</h1>
+    <h1>Simulador Interactivo: lectorlibro</h1>
     <p>Paso de hoja 3D continuo sin corte de palabras (Anverso y Reverso)</p>
   </div>
 
@@ -355,8 +355,15 @@
     <button class="btn" onclick="turnPage(-1)">◀ Anterior</button>
     <button class="btn" onclick="turnPage(1)">Siguiente ▶</button>
   </div>
+  <div class="controls" style="margin-top: 6px;">
+    <span style="font-size: 12px; color: #9ca3af; align-self: center; margin-right: 4px;">Tipografía:</span>
+    <button class="btn active" id="btn-font-serif" onclick="setFontFamily('serif')">Serif</button>
+    <button class="btn" id="btn-font-sans" onclick="setFontFamily('sans-serif')">Sans</button>
+    <button class="btn" id="btn-font-mono" onclick="setFontFamily('monospace')">Mono</button>
+    <button class="btn" id="btn-font-compact" onclick="setFontFamily('sans-serif-condensed')">Compacta</button>
+  </div>
   <div class="hints">
-    💡 Hacé click y arrastrá suavemente con el mouse para probar la curvatura física 3D real de la página anclada a la bisagra. Probá los 3 modos de lectura arriba.
+    💡 Hacé click y arrastrá suavemente con el mouse para probar la curvatura física 3D en ambas direcciones. Probá los 3 modos de lectura y las tipografías arriba.
   </div>
 
   <script>
@@ -658,6 +665,33 @@
           btn.classList.add('active');
         } else if (['sepia', 'claro', 'noche'].some(k => btn.textContent.toLowerCase().includes(k))) {
           btn.classList.remove('active');
+        }
+      });
+    }
+
+    let currentFont = 'serif';
+    const fontFamilies = {
+      'serif': 'Georgia, Cambria, "Times New Roman", Times, serif',
+      'sans-serif': 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      'monospace': '"SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      'sans-serif-condensed': '"Arial Narrow", "Roboto Condensed", sans-serif-condensed, sans-serif',
+    };
+
+    function setFontFamily(f) {
+      currentFont = f;
+      const val = fontFamilies[f] || fontFamilies['serif'];
+      document.querySelectorAll('.page-text-container').forEach(el => {
+        el.style.fontFamily = val;
+      });
+      ['serif', 'sans', 'mono', 'compact'].forEach(k => {
+        const btn = document.getElementById(`btn-font-${k}`);
+        if (btn) {
+          const match = (k === 'serif' && f === 'serif') ||
+                        (k === 'sans' && f === 'sans-serif') ||
+                        (k === 'mono' && f === 'monospace') ||
+                        (k === 'compact' && f === 'sans-serif-condensed');
+          if (match) btn.classList.add('active');
+          else btn.classList.remove('active');
         }
       });
     }

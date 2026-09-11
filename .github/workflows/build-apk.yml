@@ -1,4 +1,4 @@
-name: Generar APK de Android (Lector Libros v2.5)
+name: Generar APK de Android (lectorlibro v2.5)
 
 on:
   push:
@@ -66,10 +66,12 @@ jobs:
           find android/app/build/outputs/apk/ -name "*.apk" -type f -exec cp {} apk_output/ \;
           
           if [ -f apk_output/app-release.apk ]; then
-            cp apk_output/app-release.apk apk_output/LectorLibros-v2.5.apk
+            cp apk_output/app-release.apk apk_output/lectorlibro.apk
+            cp apk_output/app-release.apk apk_output/lectorlibro-v2.5.apk
             cp apk_output/app-release.apk apk_output/LectorLibros.apk
           elif [ -f apk_output/app-debug.apk ]; then
-            cp apk_output/app-debug.apk apk_output/LectorLibros-v2.5.apk
+            cp apk_output/app-debug.apk apk_output/lectorlibro.apk
+            cp apk_output/app-debug.apk apk_output/lectorlibro-v2.5.apk
             cp apk_output/app-debug.apk apk_output/LectorLibros.apk
           fi
           
@@ -79,7 +81,7 @@ jobs:
       - name: Subir APK como artefacto de descarga
         uses: actions/upload-artifact@v4
         with:
-          name: LectorLibros-v2.5-APK
+          name: lectorlibro-v2.5-APK
           path: apk_output/*.apk
           if-no-files-found: error
           retention-days: 30
@@ -89,15 +91,22 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           tag_name: v2.5.${{ github.run_number }}
-          name: Lector Libros v2.5.${{ github.run_number }}
+          name: lectorlibro v2.5.${{ github.run_number }}
           body: |
-            ### 📱 Lector Libros v2.5 para Android
-            ¡Tu aplicación ya está lista para instalar!
+            ### 📱 lectorlibro v2.5 para Android
+            ¡Tu aplicación **lectorlibro** ya está lista para instalar!
             
-            Descarga directamente el archivo **`LectorLibros-v2.5.apk`** que aparece abajo en los archivos adjuntos (Assets) e instálalo en tu celular Android.
+            Descarga directamente el archivo **`lectorlibro.apk`** que aparece abajo en los archivos adjuntos (Assets) e instálalo en tu celular Android.
+            
+            #### Novedades:
+            - 📖 Nombre oficial actualizado a **lectorlibro** con nuevo logo e ícono.
+            - 🔄 Animación física 3D perfeccionada en ambas direcciones (derecha a izquierda e izquierda a derecha).
+            - 🔤 Selector de tipografías: Serif, Sans, Mono y Compacta.
+            - ⚡ 3 Modos de lectura intercambiables (Curva 3D, Deslizar Kindle, e Instantáneo).
           files: apk_output/*.apk
           draft: false
           prerelease: false
+
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

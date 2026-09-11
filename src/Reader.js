@@ -14,7 +14,7 @@ const themes = {
   light: { bg: '#EDEFF2', paper: '#FFFFFF', text: '#202938', muted: '#58677A', line: '#D3DBE5', accent: '#245DC1' },
   dark: { bg: '#0C1420', paper: '#141F2F', text: '#E5EAF1', muted: '#A0AFC2', line: '#344458', accent: '#95BDFF' },
 };
-const defaults = { theme: 'sepia', fontSize: 18, motion: true };
+const defaults = { theme: 'sepia', fontSize: 18, fontFamily: 'serif', motion: true };
 
 export default function Reader({ route, navigation }) {
   const { book } = route.params;
@@ -69,7 +69,8 @@ export default function Reader({ route, navigation }) {
         setPage(Math.max(0, Math.min(Number.isInteger(state.page) ? state.page : 0, pdf ? Number.MAX_SAFE_INTEGER : Math.max(0, textPages.length - 1))));
         setMarks(Array.isArray(state.bookmarks) ? state.bookmarks.filter(Number.isInteger) : []);
         setAnnotations(normalizeAnnotations(state.annotations));
-        setSettings({ theme: themes[saved.theme] ? saved.theme : 'sepia', fontSize: Math.max(14, Math.min(30, Number(saved.fontSize) || 18)), motion: saved.motion !== false ? (saved.motion === 'slide' ? 'slide' : true) : false });
+        const validFonts = ['serif', 'sans-serif', 'monospace', 'sans-serif-condensed'];
+        setSettings({ theme: themes[saved.theme] ? saved.theme : 'sepia', fontSize: Math.max(14, Math.min(30, Number(saved.fontSize) || 18)), fontFamily: validFonts.includes(saved.fontFamily) ? saved.fontFamily : 'serif', motion: saved.motion !== false ? (saved.motion === 'slide' ? 'slide' : true) : false });
       }).catch(() => { if (alive.current) setSaveError('No se pudo recuperar la posición guardada.'); })
       .finally(() => { if (alive.current) setReady(true); });
     AccessibilityInfo.isReduceMotionEnabled().then(v => { if (alive.current) setReduced(v); });
@@ -189,7 +190,7 @@ export default function Reader({ route, navigation }) {
   };
   const icon = (name, label, action, disabled = false, selected = false) => <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled, selected }} disabled={disabled} onPress={action} style={({ pressed }) => [styles.icon, { opacity: disabled ? 0.3 : pressed ? 0.55 : 1 }]}><Ionicons name={name} size={23} color={palette.accent} /></Pressable>;
   const button = (label, action, disabled = false) => <Pressable accessibilityRole="button" disabled={disabled} accessibilityState={{ disabled }} onPress={action} style={[styles.button, { borderColor: palette.line, opacity: disabled ? 0.4 : 1 }]}><Text style={{ color: palette.text, fontSize: 16 }}>{label}</Text></Pressable>;
-  const textStyle = { color: palette.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * 1.65, fontFamily: 'serif' };
+  const textStyle = { color: palette.text, fontSize: settings.fontSize, lineHeight: settings.fontSize * 1.65, fontFamily: settings.fontFamily || 'serif' };
   const underneath = pages[page + direction];
   const renderPageText = (text, pageAnnotations, selectable = false) => <Text selectable={selectable} style={textStyle}>{textSegments(text || '', pageAnnotations).map((segment, index) => <Text key={`${segment.annotation?.id || 'plain'}_${index}`} style={segment.annotation ? { backgroundColor: segment.annotation.color, color: '#1F2937' } : null}>{segment.text}</Text>)}</Text>;
   if (!ready) return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}><ActivityIndicator style={{ flex: 1 }} color={palette.accent} /></SafeAreaView>;
@@ -234,6 +235,13 @@ export default function Reader({ route, navigation }) {
               <View style={styles.row}>
                 {button('A−', () => changeSettings({ fontSize: settings.fontSize - 2 }), settings.fontSize <= 14)}
                 {button('A+', () => changeSettings({ fontSize: settings.fontSize + 2 }), settings.fontSize >= 30)}
+              </View>
+              <Text style={{ color: palette.muted, marginTop: 4 }}>TIPOGRAFÍA</Text>
+              <View style={styles.row}>
+                {button(`${(!settings.fontFamily || settings.fontFamily === 'serif') ? '✓ ' : ''}Serif`, () => changeSettings({ fontFamily: 'serif' }))}
+                {button(`${settings.fontFamily === 'sans-serif' ? '✓ ' : ''}Sans`, () => changeSettings({ fontFamily: 'sans-serif' }))}
+                {button(`${settings.fontFamily === 'monospace' ? '✓ ' : ''}Mono`, () => changeSettings({ fontFamily: 'monospace' }))}
+                {button(`${settings.fontFamily === 'sans-serif-condensed' ? '✓ ' : ''}Compacta`, () => changeSettings({ fontFamily: 'sans-serif-condensed' }))}
               </View>
               <Text style={{ color: palette.muted, marginTop: 4 }}>PASO DE PÁGINA</Text>
               <View style={styles.row}>
