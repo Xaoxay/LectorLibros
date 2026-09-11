@@ -879,9 +879,9 @@ function ProfileScreen({ navigation }) {
   const [isEditingName, setIsEditingName] = useState(false);
 
   useEffect(() => {
-    loadStoredBooks().then((b) => setTotalBooks(b.length));
-    AsyncStorage.getItem("@profile_name").then(n => { if (n) setProfileName(n); });
-    AsyncStorage.getItem("@profile_photo").then(p => { if (p) setProfilePhoto(p); });
+    loadStoredBooks().then((b) => setTotalBooks(b.length)).catch(() => {});
+    AsyncStorage.getItem("@profile_name").then(n => { if (n) setProfileName(n); }).catch(() => {});
+    AsyncStorage.getItem("@profile_photo").then(p => { if (p) setProfilePhoto(p); }).catch(() => {});
   }, []);
 
   const saveName = async (name) => {
@@ -988,6 +988,7 @@ function ProfileScreen({ navigation }) {
 /* ==========================================================================
    NAVEGACIÓN PRINCIPAL
    ========================================================================== */
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
