@@ -112,7 +112,7 @@ export default function PageCurl({ width, direction, drag, paperColor, lineColor
           backgroundColor: paperColor,
           width: backWidth,
           opacity: sheetOpacity,
-          ...(direction === 1 ? { left: 0 } : { left: 0 }),
+          ...(direction === 1 ? { left: 0 } : { right: 0 }),
           transform: [
             { perspective: 1500 },
             { translateX: backTranslateX },
