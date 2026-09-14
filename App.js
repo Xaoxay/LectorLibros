@@ -1,4 +1,6 @@
 // App.js - Lector Libros (Lector Libros Completo - 10 Pantallas)
+import { LogBox } from 'react-native';
+LogBox.ignoreAllLogs(true);
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
