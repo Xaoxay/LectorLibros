@@ -1,6 +1,6 @@
 {
   "name": "lectorlibro",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",

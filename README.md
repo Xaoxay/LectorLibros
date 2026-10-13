@@ -1,4 +1,4 @@
-# Lector Libros 2.6.1
+# Lector Libros 2.7.0
 
 Lector personal para Android con biblioteca local, importación de PDF/EPUB y búsqueda en Gutenberg y Open Library. Abre directamente la biblioteca; no requiere registro ni simula autenticación o sincronización en la nube.
 
@@ -76,3 +76,9 @@ Fuentes: [Gutendex](https://gutendex.com/), [Open Library Search API](https://op
 - Se retiraron Firebase, epubjs y WebView, que no se utilizan en las pantallas ni en el lector actual.
 
 Validación de esta revisión: 50 pruebas automatizadas aprobadas y exportación Android/Hermes exitosa. Para repetir: `npm test` y `npm run check:android`. En Windows con carpetas redirigidas o junctions, ejecutar Expo desde la ruta real de la carpeta para evitar el error de SHA-1 de Metro. La compilación JavaScript/Hermes y las pruebas con mocks no sustituyen la compilación nativa ni una prueba en Android.
+
+## Nuevo diseño en 2.7.0
+
+Interfaz cálida con crema, tinta y acentos terracota, portadas de tonos naturales y títulos editoriales. La navegación mantiene Inicio, Biblioteca, Buscar y Perfil. La importación, lectura, notas y marcadores funcionan localmente sin configurar servicios de traducción.
+
+La vista previa interactiva está en `design-preview/index.html`; usa libros de muestra para revisar el diseño. Validación: `npm test` y `npm run check:android`.
