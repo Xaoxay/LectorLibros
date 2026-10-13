@@ -1,6 +1,0 @@
-{
-  "name": "lectorlibros-translation-service", "version": "1.0.0", "private": true,
-  "engines": { "node": ">=22.13.0" },
-  "scripts": { "start": "node --env-file=.env index.js", "test": "node --test tests/*.test.js" },
-  "dependencies": { "pdfjs-dist": "^5.4.0" }
-}

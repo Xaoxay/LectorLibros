@@ -11,26 +11,8 @@ permissions:
   contents: write
 
 jobs:
-  translation-service:
-    name: Validar servicio de traducción
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-      - name: Instalar servicio
-        working-directory: server
-        run: npm ci
-      - name: Probar cola, proveedor y extracción PDF
-        working-directory: server
-        run: npm test
-
   build:
     name: Compilar APK Android
-    needs: translation-service
     runs-on: ubuntu-latest
 
     steps:
@@ -117,10 +99,7 @@ jobs:
             
             #### Novedades:
             - Nuevo diseño cálido de biblioteca, con crema, tinta y acentos terracota.
-            - Traducción completa de chino, japonés, coreano e inglés a español latino.
-            - Traducción y revisión por fragmentos, progreso, pausa y reanudación.
-            - Copia en español independiente del libro original.
-            - El traductor requiere un servicio conectado y una API configurada.
+            - Importación y biblioteca local con las correcciones de estabilidad.
 
           files: apk_output/*.apk
           draft: false

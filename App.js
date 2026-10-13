@@ -22,7 +22,6 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { parseEpubFromBase64 } from "./src/epub";
 import Reader from "./src/Reader";
-import TranslationScreen from "./src/TranslationScreen";
 import { palette } from "./src/designTheme";
 import { createLibraryStore } from "./src/libraryStore";
 import { importBook } from "./src/importBook";
@@ -234,7 +233,6 @@ function BottomNavBar({ activeTab, navigation }) {
   const tabs = [
     { key: "Home", label: "Inicio", icon: "home-outline", activeIcon: "home" },
     { key: "Library", label: "Biblioteca", icon: "library-outline", activeIcon: "library" },
-    { key: "Translate", label: "Traducir", icon: "language-outline", activeIcon: "language" },
     { key: "Search", label: "Buscar", icon: "search-outline", activeIcon: "search" },
     { key: "Profile", label: "Perfil", icon: "person-outline", activeIcon: "person" },
   ];
@@ -288,19 +286,13 @@ function HomeScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.homeContent}>
         <Text style={styles.homeEyebrow}>LECTOR LIBROS</Text>
         <Text style={styles.homeTitle}>Tu próxima gran historia.</Text>
-        <Text style={styles.homeSubtitle}>Un lugar para leer, descubrir y viajar entre idiomas.</Text>
+        <Text style={styles.homeSubtitle}>Un lugar para leer, descubrir y guardar tus historias.</Text>
 
         {recent ? <Pressable accessibilityRole="button" onPress={() => navigation.navigate("Reader", { book: recent })} style={({ pressed }) => [styles.continueCard, pressed && { opacity: 0.75 }]}>
           <BookCoverImage coverUrl={recent.cover} title={recent.name} type={recent.type} width={72} height={104} />
           <View style={{ flex: 1, gap: 5 }}><Text style={styles.homeEyebrow}>CONTINUAR LEYENDO</Text><Text numberOfLines={2} style={styles.continueTitle}>{recent.name}</Text><Text numberOfLines={1} style={styles.homeActionSubtitle}>{recent.author}</Text><Text style={styles.continueProgress}>{recent.progress || 0}% completado</Text></View>
         </Pressable> : <View style={styles.continueCard}><View style={styles.homeActionIcon}><Ionicons name="book-outline" size={26} color={COLORS.accentLight} /></View><View style={{ flex: 1 }}><Text style={styles.continueTitle}>Empezá tu biblioteca</Text><Text style={styles.homeActionSubtitle}>Descargá un clásico o importá tu propio libro.</Text></View></View>}
 
-        <View style={styles.translationPromo}>
-          <Text style={styles.promoEyebrow}>CHINO · JAPONÉS · COREANO · INGLÉS</Text>
-          <Text style={styles.promoTitle}>Leelo en tu idioma.</Text>
-          <Text style={styles.promoText}>Traducí el libro completo a español latino y conservá el original.</Text>
-          <Pressable accessibilityRole="button" onPress={() => navigation.navigate("Translate")} style={styles.promoButton}><Text style={styles.promoButtonText}>Traducir un libro</Text><Ionicons name="arrow-forward" size={17} color={COLORS.forest} /></Pressable>
-        </View>
         <Text style={styles.homeSectionTitle}>Tu biblioteca, a tu manera</Text>
         {homeAction("search", "Buscar libros", "Descargá EPUB gratuitos de dominio público", () => navigation.navigate("Search"))}
         {homeAction("add-circle-outline", "Importar un archivo", "Agregá un PDF o EPUB desde tu dispositivo", () => navigation.navigate("Upload"))}
@@ -487,11 +479,8 @@ function UploadScreen({ navigation }) {
       if (result.type === "cancel" || result.canceled) return;
       const document = result.assets?.[0] || result;
       const book = await importBook(document, { fs: FileSystem, parse: parseEpubFromBase64, mutate: mutateBooks, onStatus: setUploadStatus });
-      Alert.alert("Tu libro está listo", `"${book.name}" se guardó en tu biblioteca. Podés leer el original o crear una copia en español latino.`, [
-        { text: "Leer original", onPress: () => navigation.navigate("Reader", { book }) },
-        { text: "Traducir libro completo", onPress: () => navigation.navigate("Translate", { book }) },
-        { text: "Ver libro", onPress: () => navigation.navigate("BookDetail", { book }) },
-      ]);
+      Alert.alert("¡Libro agregado!", `"${book.name}" se guardó en tu biblioteca.`);
+      navigation.navigate("BookDetail", { book });
     } catch (e) {
       Alert.alert("Error al cargar", e.message || "No se pudo leer el archivo.");
     } finally {
@@ -710,8 +699,6 @@ function BookDetailScreen({ route, navigation }) {
           <Text style={styles.btnPrimaryText}>{currentBook.previewUrl ? "Ver ficha y vista previa" : "Continuar leyendo"}</Text>
         </TouchableOpacity>
 
-        {!currentBook.translation && <Pressable accessibilityRole="button" onPress={() => navigation.navigate("Translate", { book: currentBook })} style={[styles.btnSecondary, { marginTop: 12, flexDirection: 'row', gap: 10, justifyContent: 'center' }]}><Ionicons name="language-outline" size={22} color={COLORS.accent} /><Text style={styles.btnSecondaryText}>Traducir libro completo</Text></Pressable>}
-        {!!currentBook.translation && <Text style={[styles.detailBookAuthor, { textAlign: 'center', marginTop: 14 }]}>Copia traducida a español latino · Tu original se conserva</Text>}
         {/* Acciones del libro */}
         <View style={styles.actionsCard}>
           <TouchableOpacity onPress={toggleFavorite} style={styles.actionRow} activeOpacity={0.7}>
@@ -752,9 +739,6 @@ function ReaderScreen(props) {
 /* ==========================================================================
    PANTALLA 8: BUSCAR EN LÍNEA (SearchScreen)
    ========================================================================== */
-function TranslateScreen(props) {
-  return <TranslationScreen {...props} loadBooks={loadStoredBooks} mutateBooks={mutateBooks} bottomBar={<BottomNavBar activeTab="Translate" navigation={props.navigation} />} />;
-}
 function SearchScreen(props) {
   return <CatalogScreen {...props} loadBooks={loadStoredBooks} mutateBooks={mutateBooks} bottomBar={<BottomNavBar activeTab="Search" navigation={props.navigation} />} />;
 }
@@ -807,7 +791,6 @@ function ProfileScreen({ navigation }) {
     { key: "downloads", label: "Descargas", icon: "download-outline", action: () => Alert.alert("Descargas", "Los PDF y EPUB importados se guardan en este dispositivo.") },
     { key: "favs", label: "Favoritos", icon: "heart-outline", action: () => navigation.navigate("Library", { filter: "favorites" }) },
     { key: "history", label: "Historial de lectura", icon: "time-outline", action: () => navigation.navigate("Library", { filter: "history" }) },
-    { key: "translation", label: "Servicio de traducción", icon: "language-outline", action: () => navigation.navigate("Translate", { openSettings: true }) },
     { key: "settings", label: "Configuración", icon: "settings-outline", action: () => Alert.alert("Configuración", "Los ajustes de tema, letra y animación están dentro del lector y se guardan en este dispositivo.") },
     { key: "update", label: "Buscar actualizaciones", icon: "refresh-outline", action: checkUpdates },
   ];
@@ -899,7 +882,6 @@ export default function App() {
           <Stack.Screen name="BookDetail" component={BookDetailScreen} />
           <Stack.Screen name="Reader" component={ReaderScreen} />
           <Stack.Screen name="Search" component={SearchScreen} />
-          <Stack.Screen name="Translate" component={TranslateScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
         </Stack.Navigator>
       </NavigationContainer></SafeAreaProvider>
@@ -911,12 +893,6 @@ export default function App() {
    ESTILOS VISUALES
    ========================================================================== */
 const styles = StyleSheet.create({
-  translationPromo: { backgroundColor: COLORS.forest, borderRadius: 20, padding: 22, marginTop: 24 },
-  promoEyebrow: { color: '#E3E9DE', fontSize: 10, letterSpacing: 1, fontWeight: '700' },
-  promoTitle: { fontFamily: 'serif', color: COLORS.onForest, fontSize: 31, lineHeight: 37, marginTop: 12 },
-  promoText: { color: '#E3E9DE', fontSize: 14, lineHeight: 22, marginTop: 8, maxWidth: 280 },
-  promoButton: { backgroundColor: '#F4EDDD', minHeight: 48, borderRadius: 12, padding: 14, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18 },
-  promoButtonText: { color: COLORS.forest, fontSize: 14, fontWeight: '700' },
   screen: {
     flex: 1,
     backgroundColor: COLORS.bg,

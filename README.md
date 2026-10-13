@@ -77,17 +77,8 @@ Fuentes: [Gutendex](https://gutendex.com/), [Open Library Search API](https://op
 
 Validación de esta revisión: 50 pruebas automatizadas aprobadas y exportación Android/Hermes exitosa. Para repetir: `npm test` y `npm run check:android`. En Windows con carpetas redirigidas o junctions, ejecutar Expo desde la ruta real de la carpeta para evitar el error de SHA-1 de Metro. La compilación JavaScript/Hermes y las pruebas con mocks no sustituyen la compilación nativa ni una prueba en Android.
 
+## Nuevo diseño en 2.7.0
 
-## Traducción y nuevo diseño en 2.7.0
+Interfaz cálida con crema, tinta y acentos terracota, portadas de tonos naturales y títulos editoriales. La navegación mantiene Inicio, Biblioteca, Buscar y Perfil. La importación, lectura, notas y marcadores funcionan localmente sin configurar servicios de traducción.
 
-La interfaz usa crema, tinta, verde de biblioteca y acentos terracota. Después de importar un PDF o EPUB se puede elegir **Traducir libro completo**. La ficha del libro y la nueva pestaña Traducir también abren ese flujo.
-
-El traductor contempla chino, japonés, coreano e inglés, con detección opcional, hacia español latino neutro. Conserva el original y guarda una copia independiente en texto paginado, con sus propios marcadores, notas y posición. Los trabajos tienen progreso real por fragmentos revisados, pausa, cancelación, reintento y recuperación después de reiniciar el servicio. El trabajo continúa en el servidor aunque se cierre la app; para iniciar o descargar el resultado se necesita conexión.
-
-**Activación pendiente:** hace falta desplegar el servicio incluido en `server/`, conectar una API de OpenAI y configurar acceso HTTPS para los lectores. El APK no contiene una clave de OpenAI ni una traducción ficticia de respaldo. El servicio se entrega preparado para conectar y desplegar; las pruebas usan proveedores simulados y no demuestran todavía calidad literaria con libros reales. Ver [instalación, funcionamiento y límites del servicio](server/README.md).
-
-PDF traducibles: hasta 40 MB, con texto extraíble, sin contraseña. No hay OCR de PDF escaneados. La versión traducida conserva texto, no ilustraciones, tablas ni maquetación editorial. El proveedor cobra por uso; una revisión por fragmento agrega llamadas y consumo. Los resultados se conservan siete días en el servidor para descargarlos, y las copias instaladas permanecen en el dispositivo.
-
-Pruebas: `npm test` para la app y `npm ci --prefix server && npm test --prefix server` con Node.js 22.13 o posterior para el servicio. La CI comprueba ambos y compila el APK. La vista previa interactiva está en `design-preview/index.html`; su progreso es ilustrativo y no llama al proveedor.
-
-Validación local de 2.7.0: 58 pruebas de la app y 15 del servicio aprobadas (73 en total), además de exportación Android/Hermes correcta. No se usó una clave de OpenAI ni se tradujo un libro real durante estas pruebas.
+La vista previa interactiva está en `design-preview/index.html`; usa libros de muestra para revisar el diseño. Validación: `npm test` y `npm run check:android`.

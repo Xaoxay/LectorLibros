@@ -10,6 +10,4 @@ npm-debug.*
 *.orig.*
 web-build/
 .env*
-server/data/
 design-preview/*.png
-!server/.env.example
