@@ -23,8 +23,8 @@ test('catalog errors are surfaced and general results do not invent downloads', 
 });
 function dependencies(overrides={}) {
  const writes=[];const deleted=[];const saves=[];
- const fs={documentDirectory:'file:///private/',EncodingType:{Base64:'base64'},makeDirectoryAsync:async()=>{},createDownloadResumable:()=>({downloadAsync:async()=>({status:200}),pauseAsync:async()=>{}}),readAsStringAsync:async()=> 'epub-data',writeAsStringAsync:async(...args)=>writes.push(args),deleteAsync:async p=>deleted.push(p)};
- return {fs,parse:async()=>({title:'Libro',author:'Autor',pages:['Capítulo uno']}),load:async()=>[],save:async books=>saves.push(books),writes,deleted,saves,...overrides};
+ const fs={documentDirectory:'file:///private/',EncodingType:{Base64:'base64'},makeDirectoryAsync:async()=>{},getInfoAsync:async()=>({exists:true,size:100}),createDownloadResumable:()=>({downloadAsync:async()=>({status:200}),pauseAsync:async()=>{}}),readAsStringAsync:async()=> 'epub-data',writeAsStringAsync:async(...args)=>writes.push(args),deleteAsync:async p=>deleted.push(p)};
+ return {fs,parse:async()=>({title:'Libro',author:'Autor',pages:['Capítulo uno']}),load:async()=>[],mutate:async fn=>saves.push(fn([])),writes,deleted,saves,...overrides};
 }
 test('download persists valid EPUB and its text only once', async()=>{
  const deps=dependencies();const book=await downloadBook(item,deps);
@@ -42,9 +42,37 @@ test('invalid EPUB, HTTP errors, cancellation and failed save clean up files', a
   const deps=dependencies();
   if(mode==='parse') deps.parse=async()=>{throw Error('EPUB corrupto');};
   if(mode==='http') deps.fs.createDownloadResumable=()=>({downloadAsync:async()=>({status:503})});
-  if(mode==='save') deps.save=async()=>{throw Error('Sin espacio');};
+  if(mode==='save') deps.mutate=async()=>{throw Error('Sin espacio');};
   if(mode==='cancel'){ const controller=new AbortController();controller.abort();deps.signal=controller.signal; }
   await assert.rejects(downloadBook(item,deps));assert.equal(deps.deleted.length,2,mode);
   assert.equal(deps.saves.length,0,mode);
  }
+});
+
+
+test('parallel downloads preserve both books through a shared mutation queue', async () => {
+ const { createLibraryStore } = require('../src/libraryStore');
+ let raw = '[]';
+ const store = createLibraryStore({getItem:async()=>raw,setItem:async(k,v)=>{raw=v},multiGet:async keys=>keys.map(k=>[k,null])}, []);
+ const deps=dependencies({load:store.load,mutate:store.mutate});
+ await Promise.all([downloadBook(item,deps),downloadBook({...item,id:'gutenberg_2001'},deps)]);
+ assert.equal((await store.load()).length,2);
+});
+test('parallel duplicate downloads reuse the committed book and remove redundant files', async () => {
+ const { createLibraryStore } = require('../src/libraryStore');
+ let raw = '[]';
+ const store = createLibraryStore({getItem:async()=>raw,setItem:async(k,v)=>{raw=v},multiGet:async keys=>keys.map(k=>[k,null])}, []);
+ const deps=dependencies({load:store.load,mutate:store.mutate});
+ const books=await Promise.all([downloadBook(item,deps),downloadBook(item,deps)]);
+ assert.equal((await store.load()).length,1);
+ assert.equal(books[0].url,books[1].url);
+ assert.ok(!deps.deleted.includes(books[0].url));
+});
+
+test('oversized background downloads are rejected before loading them into memory', async () => {
+ const deps=dependencies();let read=false;
+ deps.fs.getInfoAsync=async()=>({exists:true,size:41*1024*1024});
+ deps.fs.readAsStringAsync=async()=>{read=true;return 'data'};
+ await assert.rejects(downloadBook(item,deps),/40 MB/);
+ assert.equal(read,false);assert.equal(deps.saves.length,0);assert.equal(deps.deleted.length,2);
 });

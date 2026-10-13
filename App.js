@@ -1,6 +1,4 @@
 // App.js - Lector Libros (Lector Libros Completo - 10 Pantallas)
-import { LogBox } from 'react-native';
-LogBox.ignoreAllLogs(true);
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -23,6 +21,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { parseEpubFromBase64 } from "./src/epub";
 import Reader from "./src/Reader";
+import { createLibraryStore } from "./src/libraryStore";
+import { importBook } from "./src/importBook";
 import CatalogScreen from "./src/CatalogScreen";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -136,45 +136,10 @@ const STORAGE_KEY = "@lector_libros_store_v2";
 /* ==========================================================================
    GESTOR DE ALMACENAMIENTO Y PORTADAS AUTOMÁTICAS
    ========================================================================== */
-async function loadStoredBooks() {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_BOOKS));
-      return INITIAL_BOOKS;
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return INITIAL_BOOKS;
-    }
-
-    // Compatibilidad con muestras guardadas en versiones anteriores
-    const merged = parsed.map((book) => {
-      const sampleMatch = INITIAL_BOOKS.find((s) => s.id === book.id);
-      if (sampleMatch && (!book.pages || book.pages.length < sampleMatch.pages.length)) {
-        return { ...book, name: sampleMatch.name, pages: sampleMatch.pages, type: sampleMatch.type };
-      }
-      return sampleMatch ? { ...book, name: sampleMatch.name } : book;
-    });
-
-    const states = await AsyncStorage.multiGet(merged.map(b => "reader:" + b.id));
-    return merged.map((book, i) => {
-      try { return { ...book, ...JSON.parse(states[i][1] || "{}") }; }
-      catch { return book; }
-    });
-  } catch (e) {
-    return INITIAL_BOOKS;
-  }
-}
-
-async function saveAllBooks(books) {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-  } catch (e) {
-    Alert.alert("No se pudo guardar", "Revisa el espacio disponible e inténtalo de nuevo.");
-    throw e;
-  }
-}
+const libraryStore = createLibraryStore(AsyncStorage, INITIAL_BOOKS, STORAGE_KEY);
+const loadStoredBooks = libraryStore.load;
+const mutateBooks = libraryStore.mutate;
+const showStorageError = () => Alert.alert("No se pudo acceder a la biblioteca", "Tus datos se conservaron. Revisa el espacio disponible y vuelve a intentarlo.");
 
 // Búsqueda inteligente de portadas en Google Books
 async function fetchCoverForTitle(title) {
@@ -311,7 +276,7 @@ function HomeScreen({ navigation }) {
   const [books, setBooks] = useState([]);
 
   useEffect(() => {
-    const refresh = () => loadStoredBooks().then(setBooks);
+    const refresh = () => loadStoredBooks().then(setBooks).catch(showStorageError);
     refresh();
     return navigation.addListener("focus", refresh);
   }, [navigation]);
@@ -358,9 +323,9 @@ function LibraryScreen({ navigation, route }) {
 
   useEffect(() => {
     const unsub = navigation.addListener("focus", () => {
-      loadStoredBooks().then(setBooks);
+      loadStoredBooks().then(setBooks).catch(showStorageError);
     });
-    loadStoredBooks().then(setBooks);
+    loadStoredBooks().then(setBooks).catch(showStorageError);
     return unsub;
   }, [navigation]);
 
@@ -516,98 +481,23 @@ function UploadScreen({ navigation }) {
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
 
+  const picking = useRef(false);
   const handlePickDocument = async () => {
+    if (picking.current) return;
+    picking.current = true;
     try {
       setUploading(true);
       setUploadStatus("Seleccionando archivo...");
-      const res = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "application/epub+zip"],
-        copyToCacheDirectory: true,
-      });
-
-      if (res.type === "cancel") {
-        setUploading(false);
-        setUploadStatus("");
-        return;
-      }
-
-      const { name, uri } = res;
-      if (!/\.(pdf|epub)$/i.test(name || "")) throw new Error("Selecciona un archivo PDF o EPUB.");
-      const isPdf = name.toLowerCase().endsWith(".pdf");
-      const bookId = "book_" + Date.now();
-
-      setUploadStatus("Guardando archivo en el dispositivo...");
-      const booksDir = FileSystem.documentDirectory + "books/";
-      const dirInfo = await FileSystem.getInfoAsync(booksDir);
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(booksDir, { intermediates: true });
-      }
-
-      const extension = isPdf ? ".pdf" : ".epub";
-      const permanentUri = booksDir + bookId + extension;
-      await FileSystem.copyAsync({ from: uri, to: permanentUri });
-
-      let bookTitle = name.replace(/\.(pdf|epub)$/i, "").replace(/[_-]/g, " ").trim();
-      let authorName = "Archivo local";
-      let detectedCover = null;
-      let extractedPages = [];
-
-      if (!isPdf) {
-        // Parsear EPUB completo con JSZip
-        setUploadStatus("Extrayendo capítulos y páginas del EPUB...");
-        try {
-          const base64Data = await FileSystem.readAsStringAsync(permanentUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const parsed = await parseEpubFromBase64(base64Data, bookTitle);
-          if (parsed.title) bookTitle = parsed.title;
-          if (parsed.author) authorName = parsed.author;
-          if (parsed.cover) detectedCover = parsed.cover;
-          if (parsed.pages && parsed.pages.length > 0) {
-            extractedPages = parsed.pages;
-          }
-        } catch (epubErr) {
-          await FileSystem.deleteAsync(permanentUri, { idempotent: true });
-          throw epubErr;
-        }
-      }
-
-      let contentUri = null;
-      if (!isPdf) {
-        contentUri = booksDir + bookId + ".json";
-        await FileSystem.writeAsStringAsync(contentUri, JSON.stringify(extractedPages));
-      }
-      if (detectedCover?.startsWith("data:")) {
-        const coverUri = booksDir + bookId + ".cover.jpg";
-        await FileSystem.writeAsStringAsync(coverUri, detectedCover.split(",")[1], { encoding: FileSystem.EncodingType.Base64 });
-        detectedCover = coverUri;
-      }
-      const newBook = {
-        id: bookId,
-        name: bookTitle,
-        author: authorName,
-        url: permanentUri,
-        type: isPdf ? "pdf" : "epub",
-        cover: detectedCover,
-        progress: 0,
-        isFavorite: false,
-        contentUri,
-        pageCount: extractedPages.length,
-      };
-
-      const currentBooks = await loadStoredBooks();
-      const updated = [newBook, ...currentBooks];
-      await saveAllBooks(updated);
-
-      const countMsg = isPdf
-        ? "Documento PDF listo para lectura."
-        : `${extractedPages.length} páginas listas para leer.`;
-
-      Alert.alert("¡Libro Agregado!", `"${newBook.name}" se guardó en tu biblioteca. ${countMsg}`);
-      navigation.navigate("BookDetail", { book: newBook });
+      const result = await DocumentPicker.getDocumentAsync({ type: ["application/pdf", "application/epub+zip"], copyToCacheDirectory: true });
+      if (result.type === "cancel" || result.canceled) return;
+      const document = result.assets?.[0] || result;
+      const book = await importBook(document, { fs: FileSystem, parse: parseEpubFromBase64, mutate: mutateBooks, onStatus: setUploadStatus });
+      Alert.alert("¡Libro agregado!", `"${book.name}" se guardó en tu biblioteca.`);
+      navigation.navigate("BookDetail", { book });
     } catch (e) {
       Alert.alert("Error al cargar", e.message || "No se pudo leer el archivo.");
     } finally {
+      picking.current = false;
       setUploading(false);
       setUploadStatus("");
     }
@@ -698,20 +588,15 @@ function BookDetailScreen({ route, navigation }) {
   const { book } = route.params;
   const [currentBook, setCurrentBook] = useState(book);
   useEffect(() => navigation.addListener("focus", () => {
-    loadStoredBooks().then(all => setCurrentBook(all.find(b => b.id === book.id) || book));
+    loadStoredBooks().then(all => setCurrentBook(all.find(b => b.id === book.id) || book)).catch(showStorageError);
   }), [navigation, book.id]);
 
   const toggleFavorite = async () => {
-    const all = await loadStoredBooks();
-    const updated = all.map((b) =>
-      b.id === currentBook.id ? { ...b, isFavorite: !b.isFavorite } : b
-    );
-    await saveAllBooks(updated);
-    setCurrentBook({ ...currentBook, isFavorite: !currentBook.isFavorite });
-    Alert.alert(
-      "Favoritos",
-      !currentBook.isFavorite ? "Añadido a tus favoritos" : "Eliminado de favoritos"
-    );
+    try {
+      const updated = await mutateBooks(all => all.map(b => b.id === currentBook.id ? { ...b, isFavorite: !b.isFavorite } : b));
+      const fresh = updated.find(b => b.id === currentBook.id);
+      if (fresh) setCurrentBook(fresh);
+    } catch { showStorageError(); }
   };
 
   const handleDelete = () => {
@@ -724,17 +609,17 @@ function BookDetailScreen({ route, navigation }) {
           text: "Eliminar",
           style: "destructive",
           onPress: async () => {
-            const all = await loadStoredBooks();
-            const updated = all.filter((b) => b.id !== currentBook.id);
-            await saveAllBooks(updated);
-            await AsyncStorage.removeItem("reader:" + currentBook.id);
-            const ownedDir = FileSystem.documentDirectory + "books/";
-            for (const uri of [currentBook.url, currentBook.contentUri, currentBook.cover]) {
-              if (uri && uri.startsWith(ownedDir) && !uri.slice(ownedDir.length).includes("..")) {
-                await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+            try {
+              await mutateBooks(all => all.filter(b => b.id !== currentBook.id));
+              await AsyncStorage.removeItem("reader:" + currentBook.id).catch(() => {});
+              const ownedDir = FileSystem.documentDirectory + "books/";
+              for (const uri of [currentBook.url, currentBook.contentUri, currentBook.cover]) {
+                if (uri && uri.startsWith(ownedDir) && !uri.slice(ownedDir.length).includes("..")) {
+                  await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
+                }
               }
-            }
-            navigation.navigate("Library");
+              navigation.navigate("Library");
+            } catch { showStorageError(); }
           },
         },
       ]
@@ -868,7 +753,7 @@ function ReaderScreen(props) {
    PANTALLA 8: BUSCAR EN LÍNEA (SearchScreen)
    ========================================================================== */
 function SearchScreen(props) {
-  return <CatalogScreen {...props} loadBooks={loadStoredBooks} saveBooks={saveAllBooks} bottomBar={<BottomNavBar activeTab="Search" navigation={props.navigation} />} />;
+  return <CatalogScreen {...props} loadBooks={loadStoredBooks} mutateBooks={mutateBooks} bottomBar={<BottomNavBar activeTab="Search" navigation={props.navigation} />} />;
 }
 
 /* ==========================================================================
@@ -890,17 +775,21 @@ function ProfileScreen({ navigation }) {
     const finalName = name.trim() || "Lector local";
     setProfileName(finalName);
     setIsEditingName(false);
-    await AsyncStorage.setItem("@profile_name", finalName);
+    try { await AsyncStorage.setItem("@profile_name", finalName); } catch { Alert.alert("No se pudo guardar el nombre", "Vuelve a intentarlo."); }
   };
 
   const pickPhoto = async () => {
     try {
-      const res = await DocumentPicker.getDocumentAsync({ type: "image/*", copyToCacheDirectory: false });
-      if (!res.canceled && res.assets && res.assets.length > 0) {
-        const uri = res.assets[0].uri;
-        setProfilePhoto(uri);
-        await AsyncStorage.setItem("@profile_photo", uri);
-      }
+      const res = await DocumentPicker.getDocumentAsync({ type: "image/*", copyToCacheDirectory: true });
+      if (res.type === "cancel" || res.canceled) return;
+      const document = res.assets?.[0] || res;
+      const uri = FileSystem.documentDirectory + "profile_" + Date.now() + ".jpg";
+      await FileSystem.copyAsync({ from: document.uri, to: uri });
+      try { await AsyncStorage.setItem("@profile_photo", uri); }
+      catch (error) { await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {}); throw error; }
+      const previous = profilePhoto;
+      setProfilePhoto(uri);
+      if (previous?.startsWith(FileSystem.documentDirectory + "profile_")) await FileSystem.deleteAsync(previous, { idempotent: true }).catch(() => {});
     } catch (e) {
       Alert.alert("Error", "No se pudo cargar la imagen.");
     }

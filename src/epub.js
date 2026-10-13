@@ -1,4 +1,28 @@
 const JSZip = require("jszip");
+const { MAX_EPUB_BYTES } = require('./importBook');
+const EPUB_LIMITS = { entry: 4 * 1024 * 1024, total: 24 * 1024 * 1024, entries: 2000, pages: 20000 };
+// Stop the decompression stream before accumulating an oversized entry.
+function readEntry(file, type, budget) {
+  return new Promise((resolve, reject) => {
+    let length = 0;
+    const chunks = [];
+    const stream = file.internalStream(type);
+    stream.on('data', chunk => {
+      length += chunk.length;
+      budget.used += chunk.length;
+      if (length > EPUB_LIMITS.entry || budget.used > EPUB_LIMITS.total) {
+        stream.pause();
+        reject(new Error('El EPUB contiene demasiados datos descomprimidos.'));
+        return;
+      }
+      chunks.push(chunk);
+    }).on('error', reject).on('end', () => {
+      const content = chunks.join('');
+      // StreamHelper emits binary strings for base64; encoding happens at the end.
+      resolve(type === 'base64' ? new JSZip().file('image', content, { binary: true }).file('image').async('base64') : content);
+    }).resume();
+  });
+}
 function decodeHtmlEntities(text) {
   if (!text) return "";
   const entities = {
@@ -97,11 +121,14 @@ function resolveZipPath(base, href) {
 
 async function parseEpubFromBase64(base64Data, defaultTitle = "Libro EPUB") {
   try {
+    if (typeof base64Data !== 'string' || base64Data.length > Math.ceil(MAX_EPUB_BYTES / 3) * 4) throw new Error('El EPUB supera el límite de 40 MB.');
     const zip = await JSZip.loadAsync(base64Data, { base64: true });
+    if (Object.keys(zip.files).length > EPUB_LIMITS.entries) throw new Error('El EPUB contiene demasiados archivos.');
+    const budget = { used: 0 };
     const containerFile = zip.file("META-INF/container.xml") || zip.file("meta-inf/container.xml");
     if (!containerFile) throw new Error("No es un archivo EPUB válido");
 
-    const containerXml = await containerFile.async("string");
+    const containerXml = await readEntry(containerFile, "string", budget);
     const rootFileMatch = containerXml.match(/full-path=["']([^"']+)["']/i);
     const opfPath = rootFileMatch ? rootFileMatch[1] : "content.opf";
     const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf("/") + 1) : "";
@@ -109,13 +136,13 @@ async function parseEpubFromBase64(base64Data, defaultTitle = "Libro EPUB") {
     const opfFile = zip.file(opfPath);
     if (!opfFile) throw new Error("No se encontró el manifiesto OPF");
 
-    const opfContent = await opfFile.async("string");
+    const opfContent = await readEntry(opfFile, "string", budget);
     const titleMatch = opfContent.match(/<dc:title[^>]*>([\s\S]*?)<\/dc:title>/i);
     const authorMatch = opfContent.match(/<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/i);
     const title = titleMatch ? decodeHtmlEntities(titleMatch[1].trim()) : defaultTitle;
     const author = authorMatch ? decodeHtmlEntities(authorMatch[1].trim()) : "Autor desconocido";
 
-    const manifest = {};
+    const manifest = Object.create(null);
     const itemRegex = /<item\s+[^>]*?id=["']([^"']+)["'][^>]*?href=["']([^"']+)["'][^>]*?>|<item\s+[^>]*?href=["']([^"']+)["'][^>]*?id=["']([^"']+)["'][^>]*?>/gi;
     let match;
     while ((match = itemRegex.exec(opfContent)) !== null) {
@@ -144,8 +171,8 @@ async function parseEpubFromBase64(base64Data, defaultTitle = "Libro EPUB") {
       const coverPath = manifest[coverFileId];
       const coverZipFile = zip.file(coverPath) || zip.file(coverPath.replace(/^\//, ""));
       if (coverZipFile) {
-        const rawImg = await coverZipFile.async("base64");
-        const mime = coverPath.endsWith(".png") ? "image/png" : "image/jpeg";
+        const rawImg = await readEntry(coverZipFile, "base64", budget);
+        const mime = /\.png$/i.test(coverPath) ? "image/png" : /\.webp$/i.test(coverPath) ? "image/webp" : "image/jpeg";
         coverBase64 = `data:${mime};base64,${rawImg}`;
       }
     }
@@ -160,18 +187,20 @@ async function parseEpubFromBase64(base64Data, defaultTitle = "Libro EPUB") {
     const allPages = [];
     for (const id of spineItems) {
       const filePath = manifest[id];
-      if (!filePath) continue;
+      if (!filePath) throw new Error("El EPUB contiene un capítulo sin referencia válida.");
       const chapterFile =
         zip.file(filePath) ||
         zip.file(filePath.replace(/^\//, "")) ||
         zip.file(opfDir + filePath);
+      if (!chapterFile) throw new Error("Falta un capítulo del EPUB.");
       if (chapterFile) {
-        const rawHtml = await chapterFile.async("string");
+        const rawHtml = await readEntry(chapterFile, "string", budget);
         const cleanText = htmlToCleanText(rawHtml);
         if (cleanText && cleanText.length > 0) {
           const chapterPages = paginateText(cleanText, 1100);
           for (const p of chapterPages) {
             allPages.push(p);
+            if (allPages.length > EPUB_LIMITS.pages) throw new Error("El EPUB contiene demasiadas páginas.");
           }
         }
       }
@@ -190,4 +219,4 @@ async function parseEpubFromBase64(base64Data, defaultTitle = "Libro EPUB") {
   }
 }
 
-module.exports = { decodeHtmlEntities, htmlToCleanText, paginateText, resolveZipPath, parseEpubFromBase64 };
+module.exports = { decodeHtmlEntities, htmlToCleanText, paginateText, resolveZipPath, parseEpubFromBase64, EPUB_LIMITS };
