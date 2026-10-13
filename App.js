@@ -14,6 +14,7 @@ import {
   StyleSheet,
   ScrollView,
   Share,
+  Linking,
   Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,6 +22,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { parseEpubFromBase64 } from "./src/epub";
 import Reader from "./src/Reader";
+import TranslationScreen from "./src/TranslationScreen";
+import { palette } from "./src/designTheme";
 import { createLibraryStore } from "./src/libraryStore";
 import { importBook } from "./src/importBook";
 import CatalogScreen from "./src/CatalogScreen";
@@ -30,6 +33,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 
+const APP_VERSION = require("./package.json").version;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 /* ==========================================================================
@@ -39,25 +43,9 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
    PALETA DE COLORES Y TEMAS
    ========================================================================== */
 const COLORS = {
-  bg: "#090d16",
-  bgCard: "#0f1726",
-  bgElevated: "#162032",
-  accent: "#2563eb",
-  accentLight: "#38bdf8",
-  accentGlow: "rgba(56, 189, 248, 0.25)",
-  text: "#f1f5f9",
-  textMuted: "#94a3b8",
-  border: "#1e293b",
-  borderLight: "#334155",
-  success: "#10b981",
-  danger: "#ef4444",
-  // Temas del Lector
-  sepiaBg: "#fbf0d9",
-  sepiaText: "#2c1e11",
-  sepiaBorder: "#e5d5b7",
-  darkBg: "#050811",
-  darkText: "#e2e8f0",
-  darkBorder: "#1e293b",
+  ...palette,
+  sepiaBg: "#fbf0d9", sepiaText: "#2c1e11", sepiaBorder: "#e5d5b7",
+  darkBg: "#050811", darkText: "#e2e8f0", darkBorder: "#1e293b",
 };
 
 /* ==========================================================================
@@ -168,11 +156,11 @@ function BookCoverImage({ coverUrl, title, type, width = 145, height = 205, styl
 
   // Paleta de colores para carátulas generadas
   const colors = [
-    ["#1e3a8a", "#0284c7"],
-    ["#831843", "#db2777"],
-    ["#064e3b", "#10b981"],
-    ["#701a75", "#c026d3"],
-    ["#7c2d12", "#ea580c"],
+    ["#365247", "#6F8779"],
+    ["#6A4E42", "#BDA58B"],
+    ["#404B5C", "#8998AE"],
+    ["#A24C35", "#C98566"],
+    ["#695F45", "#A99A74"],
   ];
   const charCode = (title || "A").charCodeAt(0) % colors.length;
   const [bgColor, accentColor] = colors[charCode];
@@ -219,7 +207,7 @@ function BookCoverImage({ coverUrl, title, type, width = 145, height = 205, styl
       </View>
 
       <View>
-        <Text style={{ fontSize: 24, textAlign: "center", marginBottom: 6 }}>📖</Text>
+        <Ionicons name="book-outline" size={24} color="#F4EEDD" style={{ alignSelf: "center", marginBottom: 6 }} />
         <Text
           numberOfLines={3}
           style={{
@@ -246,6 +234,7 @@ function BottomNavBar({ activeTab, navigation }) {
   const tabs = [
     { key: "Home", label: "Inicio", icon: "home-outline", activeIcon: "home" },
     { key: "Library", label: "Biblioteca", icon: "library-outline", activeIcon: "library" },
+    { key: "Translate", label: "Traducir", icon: "language-outline", activeIcon: "language" },
     { key: "Search", label: "Buscar", icon: "search-outline", activeIcon: "search" },
     { key: "Profile", label: "Perfil", icon: "person-outline", activeIcon: "person" },
   ];
@@ -295,18 +284,24 @@ function HomeScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.homeContent}>
         <Text style={styles.homeEyebrow}>LECTOR LIBROS</Text>
-        <Text style={styles.homeTitle}>Tu próxima lectura empieza acá</Text>
-        <Text style={styles.homeSubtitle}>Leé, resaltá frases y guardá tus ideas en un solo lugar.</Text>
+        <Text style={styles.homeTitle}>Tu próxima gran historia.</Text>
+        <Text style={styles.homeSubtitle}>Un lugar para leer, descubrir y viajar entre idiomas.</Text>
 
         {recent ? <Pressable accessibilityRole="button" onPress={() => navigation.navigate("Reader", { book: recent })} style={({ pressed }) => [styles.continueCard, pressed && { opacity: 0.75 }]}>
           <BookCoverImage coverUrl={recent.cover} title={recent.name} type={recent.type} width={72} height={104} />
           <View style={{ flex: 1, gap: 5 }}><Text style={styles.homeEyebrow}>CONTINUAR LEYENDO</Text><Text numberOfLines={2} style={styles.continueTitle}>{recent.name}</Text><Text numberOfLines={1} style={styles.homeActionSubtitle}>{recent.author}</Text><Text style={styles.continueProgress}>{recent.progress || 0}% completado</Text></View>
         </Pressable> : <View style={styles.continueCard}><View style={styles.homeActionIcon}><Ionicons name="book-outline" size={26} color={COLORS.accentLight} /></View><View style={{ flex: 1 }}><Text style={styles.continueTitle}>Empezá tu biblioteca</Text><Text style={styles.homeActionSubtitle}>Descargá un clásico o importá tu propio libro.</Text></View></View>}
 
-        <Text style={styles.homeSectionTitle}>¿Qué querés hacer?</Text>
+        <View style={styles.translationPromo}>
+          <Text style={styles.promoEyebrow}>CHINO · JAPONÉS · COREANO · INGLÉS</Text>
+          <Text style={styles.promoTitle}>Leelo en tu idioma.</Text>
+          <Text style={styles.promoText}>Traducí el libro completo a español latino y conservá el original.</Text>
+          <Pressable accessibilityRole="button" onPress={() => navigation.navigate("Translate")} style={styles.promoButton}><Text style={styles.promoButtonText}>Traducir un libro</Text><Ionicons name="arrow-forward" size={17} color={COLORS.forest} /></Pressable>
+        </View>
+        <Text style={styles.homeSectionTitle}>Tu biblioteca, a tu manera</Text>
         {homeAction("search", "Buscar libros", "Descargá EPUB gratuitos de dominio público", () => navigation.navigate("Search"))}
         {homeAction("add-circle-outline", "Importar un archivo", "Agregá un PDF o EPUB desde tu dispositivo", () => navigation.navigate("Upload"))}
         {homeAction("library-outline", "Abrir biblioteca", `${books.length} libros disponibles`, () => navigation.navigate("Library"))}
@@ -348,7 +343,7 @@ function LibraryScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
 
       {/* Cabecera superior */}
       <View style={styles.libraryHeaderRow}>
@@ -492,8 +487,11 @@ function UploadScreen({ navigation }) {
       if (result.type === "cancel" || result.canceled) return;
       const document = result.assets?.[0] || result;
       const book = await importBook(document, { fs: FileSystem, parse: parseEpubFromBase64, mutate: mutateBooks, onStatus: setUploadStatus });
-      Alert.alert("¡Libro agregado!", `"${book.name}" se guardó en tu biblioteca.`);
-      navigation.navigate("BookDetail", { book });
+      Alert.alert("Tu libro está listo", `"${book.name}" se guardó en tu biblioteca. Podés leer el original o crear una copia en español latino.`, [
+        { text: "Leer original", onPress: () => navigation.navigate("Reader", { book }) },
+        { text: "Traducir libro completo", onPress: () => navigation.navigate("Translate", { book }) },
+        { text: "Ver libro", onPress: () => navigation.navigate("BookDetail", { book }) },
+      ]);
     } catch (e) {
       Alert.alert("Error al cargar", e.message || "No se pudo leer el archivo.");
     } finally {
@@ -505,7 +503,7 @@ function UploadScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 90 }}>
         {/* Cabecera */}
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}>
@@ -518,7 +516,7 @@ function UploadScreen({ navigation }) {
         {/* Nube e Instrucción */}
         <View style={{ alignItems: "center", marginVertical: 12 }}>
           <View style={styles.cloudIconCircle}>
-            <Text style={{ fontSize: 40 }}>☁️</Text>
+            <Ionicons name="cloud-upload-outline" size={40} color={COLORS.accent} />
           </View>
           <Text style={styles.uploadMainTitle}>Selecciona un archivo</Text>
           <Text style={styles.uploadSubtitle}>PDF o EPUB</Text>
@@ -636,7 +634,7 @@ function BookDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
         {/* Barra superior */}
         <View style={styles.detailTopBar}>
@@ -662,7 +660,7 @@ function BookDetailScreen({ route, navigation }) {
             style={{
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.5,
+              shadowOpacity: 0.18,
               shadowRadius: 12,
               elevation: 10,
             }}
@@ -712,11 +710,13 @@ function BookDetailScreen({ route, navigation }) {
           <Text style={styles.btnPrimaryText}>{currentBook.previewUrl ? "Ver ficha y vista previa" : "Continuar leyendo"}</Text>
         </TouchableOpacity>
 
+        {!currentBook.translation && <Pressable accessibilityRole="button" onPress={() => navigation.navigate("Translate", { book: currentBook })} style={[styles.btnSecondary, { marginTop: 12, flexDirection: 'row', gap: 10, justifyContent: 'center' }]}><Ionicons name="language-outline" size={22} color={COLORS.accent} /><Text style={styles.btnSecondaryText}>Traducir libro completo</Text></Pressable>}
+        {!!currentBook.translation && <Text style={[styles.detailBookAuthor, { textAlign: 'center', marginTop: 14 }]}>Copia traducida a español latino · Tu original se conserva</Text>}
         {/* Acciones del libro */}
         <View style={styles.actionsCard}>
           <TouchableOpacity onPress={toggleFavorite} style={styles.actionRow} activeOpacity={0.7}>
             <Text style={{ fontSize: 20, marginRight: 14 }}>
-              {currentBook.isFavorite ? "❤️" : "🤍"}
+              {currentBook.isFavorite ? "♥" : "♡"}
             </Text>
             <Text style={styles.actionRowText}>
               {currentBook.isFavorite ? "En favoritos" : "Agregar a favoritos"}
@@ -726,14 +726,14 @@ function BookDetailScreen({ route, navigation }) {
           <View style={styles.actionDivider} />
 
           <TouchableOpacity onPress={handleShare} style={styles.actionRow} activeOpacity={0.7}>
-            <Text style={{ fontSize: 20, marginRight: 14 }}>⬇️</Text>
-            <Text style={styles.actionRowText}>Descargar / Compartir</Text>
+            <Ionicons name="share-outline" size={22} color={COLORS.textMuted} style={{ marginRight: 14 }} />
+            <Text style={styles.actionRowText}>Compartir recomendación</Text>
           </TouchableOpacity>
 
           <View style={styles.actionDivider} />
 
           <TouchableOpacity onPress={handleDelete} style={styles.actionRow} activeOpacity={0.7}>
-            <Text style={{ fontSize: 20, marginRight: 14 }}>🗑️</Text>
+            <Ionicons name="trash-outline" size={22} color={COLORS.danger} style={{ marginRight: 14 }} />
             <Text style={[styles.actionRowText, { color: COLORS.danger }]}>Eliminar</Text>
           </TouchableOpacity>
         </View>
@@ -752,6 +752,9 @@ function ReaderScreen(props) {
 /* ==========================================================================
    PANTALLA 8: BUSCAR EN LÍNEA (SearchScreen)
    ========================================================================== */
+function TranslateScreen(props) {
+  return <TranslationScreen {...props} loadBooks={loadStoredBooks} mutateBooks={mutateBooks} bottomBar={<BottomNavBar activeTab="Translate" navigation={props.navigation} />} />;
+}
 function SearchScreen(props) {
   return <CatalogScreen {...props} loadBooks={loadStoredBooks} mutateBooks={mutateBooks} bottomBar={<BottomNavBar activeTab="Search" navigation={props.navigation} />} />;
 }
@@ -796,27 +799,28 @@ function ProfileScreen({ navigation }) {
   };
 
   const checkUpdates = () => {
-    Alert.alert("Actualización", "LectorLibros está en su última versión (v2.5.0).");
+    Linking.openURL("https://github.com/Xaoxay/LectorLibros/releases").catch(() => Alert.alert("No se pudo abrir", "Revisá tu conexión e intentá nuevamente."));
   };
 
   const menuItems = [
-    { key: "books", label: "Mis libros", icon: "📖", action: () => navigation.navigate("Library") },
-    { key: "downloads", label: "Descargas", icon: "⬇️", action: () => Alert.alert("Descargas", "Los PDF y EPUB importados se guardan en este dispositivo.") },
-    { key: "favs", label: "Favoritos", icon: "❤️", action: () => navigation.navigate("Library", { filter: "favorites" }) },
-    { key: "history", label: "Historial de lectura", icon: "🕒", action: () => navigation.navigate("Library", { filter: "history" }) },
-    { key: "settings", label: "Configuración", icon: "⚙️", action: () => Alert.alert("Configuración", "Los ajustes de tema, letra y animación están dentro del lector y se guardan en este dispositivo.") },
-    { key: "update", label: "Buscar actualizaciones", icon: "🔄", action: checkUpdates },
+    { key: "books", label: "Mis libros", icon: "book-outline", action: () => navigation.navigate("Library") },
+    { key: "downloads", label: "Descargas", icon: "download-outline", action: () => Alert.alert("Descargas", "Los PDF y EPUB importados se guardan en este dispositivo.") },
+    { key: "favs", label: "Favoritos", icon: "heart-outline", action: () => navigation.navigate("Library", { filter: "favorites" }) },
+    { key: "history", label: "Historial de lectura", icon: "time-outline", action: () => navigation.navigate("Library", { filter: "history" }) },
+    { key: "translation", label: "Servicio de traducción", icon: "language-outline", action: () => navigation.navigate("Translate", { openSettings: true }) },
+    { key: "settings", label: "Configuración", icon: "settings-outline", action: () => Alert.alert("Configuración", "Los ajustes de tema, letra y animación están dentro del lector y se guardan en este dispositivo.") },
+    { key: "update", label: "Buscar actualizaciones", icon: "refresh-outline", action: checkUpdates },
   ];
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 90 }}>
         {/* Cabecera */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Text style={styles.libraryTitle}>Mi Perfil</Text>
-          <TouchableOpacity onPress={() => Alert.alert("LectorLibros", "Versión 2.5.0\nApp de lectura fluida a 60FPS.")} style={{ padding: 6 }}>
-            <Text style={{ color: COLORS.textMuted, fontSize: 13, fontWeight: "600" }}>v2.5.0</Text>
+          <TouchableOpacity onPress={() => Alert.alert("LectorLibros", `Versión ${APP_VERSION}`)} style={{ padding: 6 }}>
+            <Text style={{ color: COLORS.textMuted, fontSize: 13, fontWeight: "600" }}>v{APP_VERSION}</Text>
           </TouchableOpacity>
         </View>
 
@@ -826,7 +830,7 @@ function ProfileScreen({ navigation }) {
             {profilePhoto ? (
               <Image source={{ uri: profilePhoto }} style={{ width: 64, height: 64, borderRadius: 32 }} />
             ) : (
-              <Text style={{ fontSize: 34 }}>👤</Text>
+              <Ionicons name="person-outline" size={32} color={COLORS.accent} />
             )}
             <View style={{ position: "absolute", bottom: -4, right: -4, backgroundColor: COLORS.accent, borderRadius: 12, padding: 4 }}>
               <Ionicons name="camera" size={12} color="#fff" />
@@ -861,7 +865,7 @@ function ProfileScreen({ navigation }) {
           {menuItems.map((item, index) => (
             <React.Fragment key={item.key}>
               <TouchableOpacity onPress={item.action} style={styles.profileMenuItem} activeOpacity={0.7}>
-                <Text style={{ fontSize: 20, marginRight: 14 }}>{item.icon}</Text>
+                <Ionicons name={item.icon} size={22} color={COLORS.accent} style={{ marginRight: 14 }} />
                 <Text style={styles.profileMenuText}>{item.label}</Text>
                 <Text style={{ color: COLORS.textMuted, fontSize: 16, marginLeft: "auto" }}>›</Text>
               </TouchableOpacity>
@@ -895,6 +899,7 @@ export default function App() {
           <Stack.Screen name="BookDetail" component={BookDetailScreen} />
           <Stack.Screen name="Reader" component={ReaderScreen} />
           <Stack.Screen name="Search" component={SearchScreen} />
+          <Stack.Screen name="Translate" component={TranslateScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
         </Stack.Navigator>
       </NavigationContainer></SafeAreaProvider>
@@ -906,6 +911,12 @@ export default function App() {
    ESTILOS VISUALES
    ========================================================================== */
 const styles = StyleSheet.create({
+  translationPromo: { backgroundColor: COLORS.forest, borderRadius: 20, padding: 22, marginTop: 24 },
+  promoEyebrow: { color: '#E3E9DE', fontSize: 10, letterSpacing: 1, fontWeight: '700' },
+  promoTitle: { fontFamily: 'serif', color: COLORS.onForest, fontSize: 31, lineHeight: 37, marginTop: 12 },
+  promoText: { color: '#E3E9DE', fontSize: 14, lineHeight: 22, marginTop: 8, maxWidth: 280 },
+  promoButton: { backgroundColor: '#F4EDDD', minHeight: 48, borderRadius: 12, padding: 14, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18 },
+  promoButtonText: { color: COLORS.forest, fontSize: 14, fontWeight: '700' },
   screen: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -924,9 +935,10 @@ const styles = StyleSheet.create({
   },
   homeTitle: {
     color: COLORS.text,
-    fontSize: 31,
-    lineHeight: 37,
-    fontWeight: "800",
+    fontSize: 36,
+    lineHeight: 41,
+    fontFamily: "serif",
+    fontWeight: "400",
     marginTop: 8,
   },
   homeSubtitle: {
@@ -1057,7 +1069,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   btnPrimaryText: {
-    color: "#ffffff",
+    color: "#FFFAF2",
     fontSize: 16,
     fontWeight: "700",
   },
@@ -1151,8 +1163,9 @@ const styles = StyleSheet.create({
   },
   libraryTitle: {
     color: COLORS.text,
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 30,
+    fontFamily: "serif",
+    fontWeight: "400",
   },
   avatarCircle: {
     width: 38,
@@ -1324,7 +1337,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.borderLight,
     borderStyle: "dashed",
     borderRadius: 16,
-    backgroundColor: "rgba(15, 23, 38, 0.6)",
+    backgroundColor: COLORS.bgCard,
     paddingVertical: 40,
     alignItems: "center",
     marginVertical: 18,
@@ -1570,7 +1583,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 64,
-    backgroundColor: "rgba(9, 13, 22, 0.96)",
+    backgroundColor: COLORS.bgCard,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     flexDirection: "row",

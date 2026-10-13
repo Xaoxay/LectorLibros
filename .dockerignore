@@ -1,0 +1,10 @@
+.git
+node_modules
+server/node_modules
+server/data
+server/.env
+dist
+design-preview
+
+**/.env*
+!server/.env.example

@@ -1,4 +1,5 @@
 const JSZip = require("jszip");
+const { paginateText } = require("./textPagination");
 const { MAX_EPUB_BYTES } = require('./importBook');
 const EPUB_LIMITS = { entry: 4 * 1024 * 1024, total: 24 * 1024 * 1024, entries: 2000, pages: 20000 };
 // Stop the decompression stream before accumulating an oversized entry.
@@ -94,21 +95,6 @@ function htmlToCleanText(html) {
     .trim();
 }
 
-function paginateText(text, charsPerPage = 1100) {
-  if (!Number.isInteger(charsPerPage) || charsPerPage < 1) throw new Error("Tamaño de página inválido");
-  const pages = [];
-  let remaining = (text || "").trim();
-  while (remaining.length > charsPerPage) {
-    let cut = remaining.lastIndexOf(" ", charsPerPage);
-    const paragraph = remaining.lastIndexOf("\n", charsPerPage);
-    cut = Math.max(cut, paragraph);
-    if (cut < charsPerPage / 2) cut = charsPerPage;
-    pages.push(remaining.slice(0, cut).trim());
-    remaining = remaining.slice(cut).trim();
-  }
-  if (remaining) pages.push(remaining);
-  return pages;
-}
 
 function resolveZipPath(base, href) {
   const parts = [];
