@@ -3,6 +3,8 @@ name: Generar APK de Android (lectorlibro v2.6.1)
 on:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 permissions:
