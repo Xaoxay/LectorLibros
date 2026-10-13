@@ -8,7 +8,7 @@ import { downloadBook } from './downloadBook';
 import { parseEpubFromBase64 } from './epub';
 import { SearchCache } from './searchCache';
 
-export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottomBar }) {
+export default function CatalogScreen({ navigation, loadBooks, mutateBooks, bottomBar }) {
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
   const [source, setSource] = useState('free');
@@ -53,6 +53,7 @@ export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottom
     return () => clearTimeout(timer);
   }, [query, source, submitted]);
   useEffect(() => {
+    alive.current = true;
     const refresh = () => loadBooks().then(all => { if (alive.current) setOwned(Object.fromEntries(all.map(b => [b.id, b]))); }).catch(() => {});
     refresh(); const unsubscribe = navigation.addListener('focus', refresh);
     return () => { alive.current = false; sequence.current++; request.current?.abort(); transfer.current?.abort(); unsubscribe(); };
@@ -64,7 +65,7 @@ export default function CatalogScreen({ navigation, loadBooks, saveBooks, bottom
     const controller = new AbortController(); transfer.current = controller;
     setDownload(item.id); setProgress(0);
     try {
-      const book = await downloadBook(item, { fs: FileSystem, parse: parseEpubFromBase64, load: loadBooks, save: saveBooks, signal: controller.signal, onProgress: value => { if (alive.current) setProgress(value); } });
+      const book = await downloadBook(item, { fs: FileSystem, parse: parseEpubFromBase64, load: loadBooks, mutate: mutateBooks, signal: controller.signal, onProgress: value => { if (alive.current) setProgress(value); } });
       if (alive.current) { setOwned(old => ({ ...old, [book.id]: book })); Alert.alert('Libro descargado', 'Ya está disponible sin conexión en tu biblioteca.', [{ text: 'Seguir buscando' }, { text: 'Leer', onPress: () => navigation.navigate('Reader', { book }) }]); }
     } catch (e) { if (alive.current && !controller.signal.aborted) Alert.alert('No se pudo descargar', e.message); }
     finally { transfer.current = null; if (alive.current) { setDownload(null); setProgress(null); } }

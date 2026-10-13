@@ -46,3 +46,31 @@ test('corrupt or empty EPUB fails instead of creating fake text', async () => {
  await assert.rejects(parseEpubFromBase64('not-a-zip'));
  await assert.rejects(parseEpubFromBase64(await epub('')), /no contiene texto/);
 });
+
+
+test('highly compressed oversized chapters are stopped while inflating', async () => {
+ const zip = new JSZip();
+ zip.file('META-INF/container.xml', '<rootfile full-path="book.opf"/>');
+ zip.file('book.opf', '<manifest><item id="c" href="c.xhtml"/></manifest><spine><itemref idref="c"/></spine>');
+ zip.file('c.xhtml', '<p>' + 'x'.repeat(5 * 1024 * 1024) + '</p>');
+ const data = await zip.generateAsync({type:'base64',compression:'DEFLATE'});
+ assert.ok(data.length < 20000);
+ await assert.rejects(parseEpubFromBase64(data), /descomprimidos/);
+});
+test('a missing spine chapter fails instead of silently truncating the book', async () => {
+ const zip = new JSZip();
+ zip.file('META-INF/container.xml','<rootfile full-path="book.opf"/>');
+ zip.file('book.opf','<manifest><item id="c" href="missing.xhtml"/></manifest><spine><itemref idref="c"/></spine>');
+ await assert.rejects(parseEpubFromBase64(await zip.generateAsync({type:'base64'})), /Falta un capítulo/);
+});
+
+
+test('streamed covers retain their exact binary bytes and PNG MIME type', async () => {
+ const zip = new JSZip();
+ const image = Buffer.from([0,255,137,80,78,71,13,10,26,10]);
+ zip.file('META-INF/container.xml','<rootfile full-path="book.opf"/>');
+ zip.file('book.opf','<manifest><item id="c" href="c.xhtml"/><item id="cover" href="cover.PNG"/></manifest><spine><itemref idref="c"/></spine>');
+ zip.file('c.xhtml','<p>Texto.</p>');zip.file('cover.PNG',image);
+ const result=await parseEpubFromBase64(await zip.generateAsync({type:'base64',compression:'DEFLATE'}));
+ assert.equal(result.cover, 'data:image/png;base64,'+image.toString('base64'));
+});

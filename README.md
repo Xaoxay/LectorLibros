@@ -1,4 +1,4 @@
-# Lector Libros 2.5
+# Lector Libros 2.6.1
 
 Lector personal para Android con biblioteca local, importación de PDF/EPUB y búsqueda en Gutenberg y Open Library. Abre directamente la biblioteca; no requiere registro ni simula autenticación o sincronización en la nube.
 
@@ -57,8 +57,22 @@ EPUB usa extracción de texto, no maquetación editorial: no reproduce imágenes
 
 Esta versión conserva dependencias antiguas de la base del proyecto. `npm audit` informa vulnerabilidades que requieren una actualización de plataforma planificada; no se aplican actualizaciones mayores automáticas que puedan romper los módulos nativos.
 
-## Verificación de 2.5
+## Verificación anterior de 2.5
 
 33 pruebas automatizadas: hoja inferior y gesto de cierre, gestos repetidos y transición interrumpida, persistencia PDF/EPUB, resaltados y notas, caché de búsqueda, resultados de catálogo, descargas, duplicados, cancelación y limpieza ante errores. Prueba de red real con Cervantes: búsqueda en español y descarga/procesamiento de Don Quijote. Consulta real del catálogo general con Dune. Las pruebas de componentes simulan módulos nativos y no sustituyen la revisión visual en un teléfono Android.
 
 Fuentes: [Gutendex](https://gutendex.com/), [Open Library Search API](https://openlibrary.org/dev/docs/api/search). El catálogo general busca automáticamente con una espera de 450 ms; la descarga gratuita se busca al pulsar el botón para evitar solicitudes innecesarias al servicio público de Gutendex. La app cancela solicitudes obsoletas, guarda resultados recientes durante cinco minutos y pagina la lista para reducir red y trabajo de renderizado. Para un despliegue de gran escala, Gutendex recomienda alojar una instancia propia; el servicio público puede tardar o no estar disponible. La app muestra errores recuperables y limita las descargas a 40 MB y 90 segundos.
+
+
+## Correcciones de estabilidad de 2.6.1
+
+- La biblioteca distingue archivos ausentes de errores de lectura y no sustituye datos guardados con muestras. El progreso opcional se carga sin comprometer la lista de libros.
+- Una cola compartida coordina incorporaciones, favoritos y eliminaciones para evitar sobrescrituras entre pantallas.
+- El lector recupera ajustes independientemente de la posición. Si falla la recuperación del libro, conserva el estado original y ofrece reintento.
+- Importación transaccional: elimina PDF/EPUB, texto y portada parciales si no se confirma el guardado. EPUB limitados a 40 MB y PDF a 200 MB antes de copiarlos.
+- EPUB se descomprime por bloques con límites de contenido por entrada y acumulado, cantidad de archivos y páginas. Los capítulos ausentes generan un error en vez de crear un libro truncado. Archivos válidos que superen los límites también se rechazan.
+- Las descargas verifican el tamaño final antes de leer el archivo, incluso cuando los eventos de progreso se retrasan en segundo plano. Las descargas duplicadas usan archivos temporales independientes.
+- La foto de perfil admite la respuesta del selector de Expo SDK 48 y se copia al almacenamiento permanente. Los fallos al guardar el nombre se muestran al usuario.
+- Se retiraron Firebase, epubjs y WebView, que no se utilizan en las pantallas ni en el lector actual.
+
+Validación de esta revisión: 50 pruebas automatizadas aprobadas y exportación Android/Hermes exitosa. Para repetir: `npm test` y `npm run check:android`. En Windows con carpetas redirigidas o junctions, ejecutar Expo desde la ruta real de la carpeta para evitar el error de SHA-1 de Metro. La compilación JavaScript/Hermes y las pruebas con mocks no sustituyen la compilación nativa ni una prueba en Android.

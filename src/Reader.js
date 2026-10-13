@@ -32,6 +32,9 @@ export default function Reader({ route, navigation }) {
   const [draftColor, setDraftColor] = useState(HIGHLIGHT_COLORS[0]);
   const [annotationMessage, setAnnotationMessage] = useState('');
   const [ready, setReady] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
+  const [recoveryRetry, setRecoveryRetry] = useState(0);
+  const restored = useRef(false);
   const [loading, setLoading] = useState(!!pdf);
   const [error, setError] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -57,29 +60,36 @@ export default function Reader({ route, navigation }) {
 
   useEffect(() => {
     alive.current = true;
-    Promise.all([AsyncStorage.getItem('reader:' + book.id), AsyncStorage.getItem('reader:settings'), book.contentUri ? FileSystem.readAsStringAsync(book.contentUri) : Promise.resolve(null)])
+    let cancelled = false;
+    restored.current = false;
+    setReady(false);
+    setRecoveryError('');
+    Promise.all([AsyncStorage.getItem('reader:' + book.id), AsyncStorage.getItem('reader:settings').catch(() => null), book.contentUri ? FileSystem.readAsStringAsync(book.contentUri) : Promise.resolve(null)])
       .then(([stored, prefs, content]) => {
-        if (!alive.current) return;
+        if (cancelled) return;
         const state = JSON.parse(stored || '{}');
+        if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('Estado inválido');
         const textPages = content ? JSON.parse(content) : pages;
         if (!Array.isArray(textPages) || textPages.some(p => typeof p !== 'string')) throw new Error('Contenido inválido');
         setPages(textPages);
         if (!pdf) setTotal(textPages.length);
-        const saved = JSON.parse(prefs || '{}');
+        let saved = {};
+        try { const value = JSON.parse(prefs || '{}'); if (value && typeof value === 'object' && !Array.isArray(value)) saved = value; } catch {}
         setPage(Math.max(0, Math.min(Number.isInteger(state.page) ? state.page : 0, pdf ? Number.MAX_SAFE_INTEGER : Math.max(0, textPages.length - 1))));
-        setMarks(Array.isArray(state.bookmarks) ? state.bookmarks.filter(Number.isInteger) : []);
+        setMarks(Array.isArray(state.bookmarks) ? state.bookmarks.filter(p => Number.isInteger(p) && p >= 0) : []);
         setAnnotations(normalizeAnnotations(state.annotations));
         const validFonts = ['serif', 'sans-serif', 'monospace', 'sans-serif-condensed'];
         setSettings({ theme: themes[saved.theme] ? saved.theme : 'sepia', fontSize: Math.max(14, Math.min(30, Number(saved.fontSize) || 18)), fontFamily: validFonts.includes(saved.fontFamily) ? saved.fontFamily : 'serif', motion: saved.motion !== false ? (saved.motion === 'slide' ? 'slide' : true) : false });
-      }).catch(() => { if (alive.current) setSaveError('No se pudo recuperar la posición guardada.'); })
-      .finally(() => { if (alive.current) setReady(true); });
-    AccessibilityInfo.isReduceMotionEnabled().then(v => { if (alive.current) setReduced(v); });
+        restored.current = true;
+      }).catch(() => { if (!cancelled) setRecoveryError('No se pudo recuperar el libro o su posición guardada. Tus notas y marcadores se conservaron.'); })
+      .finally(() => { if (!cancelled) setReady(true); });
+    AccessibilityInfo.isReduceMotionEnabled().then(v => { if (!cancelled) setReduced(v); }).catch(() => {});
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    return () => { alive.current = false; drag.stopAnimation(); subscription.remove(); };
-  }, [book.id]);
+    return () => { cancelled = true; alive.current = false; restored.current = false; drag.stopAnimation(); subscription.remove(); };
+  }, [book.id, recoveryRetry]);
 
   useEffect(() => {
-    if (!ready || !total || (pdf && loading)) return;
+    if (!ready || !restored.current || !total || (pdf && loading)) return;
     const state = { page, bookmarks: marks, annotations, progress: Math.round((page + 1) / total * 100), lastReadAt: new Date().toISOString() };
     writeQueue.current = writeQueue.current.catch(() => {}).then(() => AsyncStorage.setItem('reader:' + book.id, JSON.stringify(state)))
       .then(() => { if (alive.current) setSaveError(''); })
@@ -197,6 +207,7 @@ export default function Reader({ route, navigation }) {
   const underneath = pages[page + direction];
   const renderPageText = (text, pageAnnotations, selectable = false) => <Text selectable={selectable} style={textStyle}>{textSegments(text || '', pageAnnotations).map((segment, index) => <Text key={`${segment.annotation?.id || 'plain'}_${index}`} style={segment.annotation ? { backgroundColor: segment.annotation.color, color: '#1F2937' } : null}>{segment.text}</Text>)}</Text>;
   if (!ready) return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}><ActivityIndicator style={{ flex: 1 }} color={palette.accent} /></SafeAreaView>;
+  if (recoveryError) return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}><View style={styles.empty}><Text accessibilityRole="alert" style={{ color: palette.text }}>{recoveryError}</Text>{button('Reintentar', () => setRecoveryRetry(v => v + 1))}{button('Volver a la biblioteca', () => navigation.goBack())}</View></SafeAreaView>;
   return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}>
     <StatusBar barStyle={settings.theme === 'dark' ? 'light-content' : 'dark-content'} />
     {!immersive && <View style={[styles.toolbar, { borderColor: palette.line }]}>

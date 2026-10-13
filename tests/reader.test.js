@@ -7,6 +7,7 @@ const { create, act } = require('react-test-renderer');
 const babel = require('@babel/core');
 const store = new Map();
 let gesture;
+let contentFailure = false;
 let deferAnimation = false;
 let animations = [];
 const Value = class { setValue() {} stopAnimation() {} interpolate() { return 0; } };
@@ -26,7 +27,7 @@ const mocks = {
  '@expo/vector-icons': {Ionicons:'Ionicons'},
  '@react-native-async-storage/async-storage': {getItem: async k => store.get(k)||null, setItem: async(k,v) => store.set(k,v)},
  'react-native-pdf':'Pdf',
- 'expo-file-system': {readAsStringAsync: async () => JSON.stringify(['Uno','Dos','Tres'])},
+ 'expo-file-system': {readAsStringAsync: async () => { if (contentFailure) throw Error('missing'); return JSON.stringify(['Uno','Dos','Tres']); }},
  'expo-linear-gradient': {LinearGradient: 'LinearGradient'},
  './annotations': require('../src/annotations'),
  './BottomSheet': props => React.createElement('BottomSheet', props, props.children),
@@ -131,4 +132,39 @@ test('highlight and note are saved and survive reopening', async()=>{
  await act(async()=>view.unmount());view=await mount();
  assert.equal(state().annotations[0].note,'Mi comentario');
  await act(async()=>view.unmount());
+});
+
+
+test('corrupt preferences cannot erase valid position, bookmarks or notes', async()=>{
+ store.clear();
+ const original={page:2,bookmarks:[1],annotations:[{id:'note',page:1,quote:'',note:'Keep me',start:-1,end:-1,color:'#FDE68A',createdAt:'2026-01-01'}]};
+ store.set('reader:test',JSON.stringify(original));store.set('reader:settings','{broken');
+ const view=await mount();
+ assert.equal(state().page,2);assert.deepEqual(state().bookmarks,[1]);assert.equal(state().annotations[0].note,'Keep me');
+ await act(async()=>view.unmount());
+});
+test('failed recovery preserves stored data and supports retry', async()=>{
+ store.clear();store.set('reader:test',JSON.stringify({page:2,bookmarks:[1],annotations:[]}));
+ const original=store.get('reader:test');
+ const storage=mocks['@react-native-async-storage/async-storage'];
+ const getItem=storage.getItem;
+ storage.getItem=async key=>{if(key==='reader:test')throw Error('unavailable');return getItem(key)};
+ const view=await mount();
+ assert.equal(store.get('reader:test'),original);
+ assert.equal(view.root.findAllByProps({accessibilityLabel:'Página siguiente'}).length,0);
+ storage.getItem=getItem;
+ const retry=view.root.findAllByType('Text').find(node=>node.children.join('')==='Reintentar');
+ await act(async()=>{retry.parent.props.onPress();await flush();});
+ assert.equal(state().page,2);assert.deepEqual(state().bookmarks,[1]);
+ await act(async()=>view.unmount());
+});
+test('missing content and invalid reader JSON never overwrite saved state', async()=>{
+ for (const failure of ['content','json']) {
+  store.clear();const original=failure==='json' ? '{broken' : JSON.stringify({page:2,bookmarks:[1]});store.set('reader:test',original);
+  contentFailure = failure === 'content';
+  const view=await mount({...book,contentUri:'file:///books/test.json'});
+  assert.equal(store.get('reader:test'),original);
+  contentFailure = false;
+  await act(async()=>view.unmount());
+ }
 });
