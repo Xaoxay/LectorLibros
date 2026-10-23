@@ -238,7 +238,7 @@ function BottomNavBar({ activeTab, navigation }) {
   ];
 
   return (
-    <View style={styles.navBar}>
+    <SafeAreaView edges={["bottom"]} style={styles.navBar}>
       {tabs.map((t) => {
         const isActive = activeTab === t.key;
         return (
@@ -255,7 +255,7 @@ function BottomNavBar({ activeTab, navigation }) {
           </Pressable>
         );
       })}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -281,8 +281,8 @@ function HomeScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
+      <StatusBar hidden barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.homeContent}>
         <Text style={styles.homeEyebrow}>LECTOR LIBROS</Text>
         <Text style={styles.homeTitle}>Tu próxima gran historia.</Text>
@@ -334,8 +334,8 @@ function LibraryScreen({ navigation, route }) {
   });
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
+      <StatusBar hidden barStyle="dark-content" />
 
       {/* Cabecera superior */}
       <View style={styles.libraryHeaderRow}>
@@ -491,8 +491,8 @@ function UploadScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
+      <StatusBar hidden barStyle="dark-content" />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 90 }}>
         {/* Cabecera */}
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 24 }}>
@@ -622,8 +622,8 @@ function BookDetailScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
+      <StatusBar hidden barStyle="dark-content" />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
         {/* Barra superior */}
         <View style={styles.detailTopBar}>
@@ -796,8 +796,8 @@ function ProfileScreen({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
+      <StatusBar hidden barStyle="dark-content" />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 90 }}>
         {/* Cabecera */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -1558,7 +1558,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 64,
+    minHeight: 64,
     backgroundColor: COLORS.bgCard,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,

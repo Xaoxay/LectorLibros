@@ -2,7 +2,7 @@
   "expo": {
     "name": "lectorlibro",
     "slug": "kindle-clone",
-    "version": "2.7.0",
+    "version": "2.7.1",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -10,6 +10,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#0f1724"
     },
+    "androidStatusBar": { "hidden": true },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -18,7 +19,7 @@
     },
     "android": {
       "package": "com.xaoxay.kindleclone",
-      "versionCode": 28,
+      "versionCode": 29,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f1724"

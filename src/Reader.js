@@ -209,7 +209,7 @@ export default function Reader({ route, navigation }) {
   if (!ready) return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}><ActivityIndicator style={{ flex: 1 }} color={palette.accent} /></SafeAreaView>;
   if (recoveryError) return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}><View style={styles.empty}><Text accessibilityRole="alert" style={{ color: palette.text }}>{recoveryError}</Text>{button('Reintentar', () => setRecoveryRetry(v => v + 1))}{button('Volver a la biblioteca', () => navigation.goBack())}</View></SafeAreaView>;
   return <SafeAreaView style={[styles.root, { backgroundColor: palette.bg }]}>
-    <StatusBar barStyle={settings.theme === 'dark' ? 'light-content' : 'dark-content'} />
+    <StatusBar hidden barStyle={settings.theme === 'dark' ? 'light-content' : 'dark-content'} />
     {!immersive && <View style={[styles.toolbar, { borderColor: palette.line }]}>
       {icon('arrow-back', 'Volver a la biblioteca', () => navigation.goBack())}
       <View style={{ flex: 1 }}><Text numberOfLines={1} style={{ color: palette.text, fontWeight: '700', fontSize: 15 }}>{book.name}</Text><Text numberOfLines={1} style={{ color: palette.muted, fontSize: 12 }}>{book.author || 'Lectura personal'}</Text></View>

@@ -82,3 +82,7 @@ Validación de esta revisión: 50 pruebas automatizadas aprobadas y exportación
 Interfaz cálida con crema, tinta y acentos terracota, portadas de tonos naturales y títulos editoriales. La navegación mantiene Inicio, Biblioteca, Buscar y Perfil. La importación, lectura, notas y marcadores funcionan localmente sin configurar servicios de traducción.
 
 La vista previa interactiva está en `design-preview/index.html`; usa libros de muestra para revisar el diseño. Validación: `npm test` y `npm run check:android`.
+
+## Pantalla completa en 2.7.1
+
+Android oculta las barras de estado y navegación del sistema para dar más espacio a la app. Se muestran temporalmente deslizando desde el borde y el modo se recupera al volver del selector de archivos o de otra app. Se respetan las áreas de cámara y la navegación inferior.
