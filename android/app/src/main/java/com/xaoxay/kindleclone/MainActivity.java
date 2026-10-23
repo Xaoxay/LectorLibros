@@ -2,6 +2,10 @@ package com.xaoxay.kindleclone;
 
 import android.os.Build;
 import android.os.Bundle;
+import android.view.WindowManager;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
@@ -18,6 +22,28 @@ public class MainActivity extends ReactActivity {
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
     super.onCreate(null);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      WindowManager.LayoutParams attributes = getWindow().getAttributes();
+      attributes.layoutInDisplayCutoutMode =
+          WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+      getWindow().setAttributes(attributes);
+    }
+    enterFullscreen();
+  }
+
+  private void enterFullscreen() {
+    WindowInsetsControllerCompat controller =
+        WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+    controller.setSystemBarsBehavior(
+        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+    controller.hide(WindowInsetsCompat.Type.systemBars());
+  }
+
+  @Override
+  public void onWindowFocusChanged(boolean hasFocus) {
+    super.onWindowFocusChanged(hasFocus);
+    // Restore immersive mode after the file picker, dialogs or another app.
+    if (hasFocus) enterFullscreen();
   }
 
   /**
