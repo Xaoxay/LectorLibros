@@ -23,8 +23,10 @@ public class MainActivity extends ReactActivity {
     setTheme(R.style.AppTheme);
     super.onCreate(null);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-      getWindow().getAttributes().layoutInDisplayCutoutMode =
+      WindowManager.LayoutParams attributes = getWindow().getAttributes();
+      attributes.layoutInDisplayCutoutMode =
           WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+      getWindow().setAttributes(attributes);
     }
     enterFullscreen();
   }
